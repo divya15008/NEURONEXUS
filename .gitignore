@@ -1,6 +1,8 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.pytest_cache.zip
+benchmark_summary.txt
 .venv/
 .venv311/
 venv/
@@ -12,3 +14,6 @@ backend/outputs/
 .env
 *.log
 Research_Paper_Journal_Template_Training_Pack
+NEURONEXUS_TEST_DATASET_90/
+NEURONEXUS_E2E_TEST_DATASET*/
+Research_Paper_End_to_End_Verification_Dataset/

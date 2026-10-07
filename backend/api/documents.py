@@ -53,6 +53,33 @@ async def upload_document(file: UploadFile = File(...)):
     return {"document_id": document_id, "filename": file.filename, "status": "uploaded"}
 
 
+@router.get("")
+async def list_documents():
+    """Manuscript library: one row per uploaded document, newest first."""
+    with connection() as conn:
+        rows = conn.execute(
+            "SELECT id, filename, status, selected_journal_id, analysis_json, created_at, updated_at "
+            "FROM documents ORDER BY created_at DESC, id DESC"
+        ).fetchall()
+        generated = {
+            row["document_id"]
+            for row in conn.execute("SELECT DISTINCT document_id FROM generated_documents").fetchall()
+        }
+    library = []
+    for row in rows:
+        library.append({
+            "document_id": row["id"],
+            "filename": row["filename"],
+            "status": row["status"],
+            "selected_journal_id": row["selected_journal_id"],
+            "has_analysis": bool(row["analysis_json"]),
+            "has_generated": row["id"] in generated,
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        })
+    return {"documents": library}
+
+
 @router.get("/{document_id}")
 async def get_document(document_id: str):
     row = fetch_one("SELECT * FROM documents WHERE id = ?", (document_id,))

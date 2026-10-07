@@ -1,5 +1,5 @@
-$base = 'c:\Users\Deekshith\Downloads\pytest_cache\NEURONEXUS_TEST_DATASET_90\NEURONEXUS_TEST_DATASET_90'
-$api = 'http://127.0.0.1:8001'
+$base = "$PSScriptRoot\NEURONEXUS_TEST_DATASET_90\NEURONEXUS_TEST_DATASET_90"
+$api = 'http://127.0.0.1:8000'
 $categories = @(
     '01_valid_complete',
     '02_citation_issues',
@@ -14,11 +14,12 @@ $categories = @(
 
 $code = @'
 import json
+import os
 from pathlib import Path
 import requests
 
-base = Path(r'c:\Users\Deekshith\Downloads\pytest_cache\NEURONEXUS_TEST_DATASET_90\NEURONEXUS_TEST_DATASET_90')
-api = 'http://127.0.0.1:8001'
+base = Path(os.getenv('NEURONEXUS_DATASET_DIR', Path.cwd() / 'NEURONEXUS_TEST_DATASET_90' / 'NEURONEXUS_TEST_DATASET_90'))
+api = os.getenv('NEURONEXUS_API_URL', 'http://127.0.0.1:8000')
 summary = {cat: {'ok': 0, 'fail': 0, 'files': []} for cat in ['01_valid_complete','02_citation_issues','03_structure_issues','04_methodology_quality','05_journal_scope','06_writing_quality','07_formatting','08_tables_figures_equations','09_edge_cases']}
 for cat in sorted(base.iterdir()):
     if not cat.is_dir():

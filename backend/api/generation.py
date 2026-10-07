@@ -90,6 +90,18 @@ async def generate_document(document_id: str, payload: dict | None = None):
         readiness_pdf,
         journal_name=journal_rules.get("journal_name"),
     )
+    with connection() as conn:
+        for index, (kind, path) in enumerate(
+            [("docx", docx_path), ("pdf", pdf_path), ("report", readiness_pdf), ("zip", package["zip_path"])]
+        ):
+            conn.execute(
+                "INSERT OR REPLACE INTO generated_documents (id, document_id, format, path) VALUES (?, ?, ?, ?)",
+                (f"{document_id}-{kind}", document_id, kind, str(path)),
+            )
+        conn.execute(
+            "UPDATE documents SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            ("generated", document_id),
+        )
     return {
         "document_id": document_id,
         "journal_id": journal_id,

@@ -11,6 +11,7 @@ from backend.api.ai import router as ai_router
 from backend.api.documents import router as documents_router
 from backend.api.citations import router as citations_router
 from backend.api.generation import router as generation_router
+from backend.api.improvements import router as improvements_router
 from backend.api.journals import router as journals_router
 from backend.database import init_db
 from backend.journal.database import seed_journals
@@ -35,6 +36,7 @@ app.include_router(documents_router)
 app.include_router(citations_router)
 app.include_router(journals_router)
 app.include_router(ai_router)
+app.include_router(improvements_router)
 app.include_router(generation_router)
 
 

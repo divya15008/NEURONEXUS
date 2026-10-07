@@ -1,5 +1,0 @@
-style,page,columns,body_font,body_size,citation,figure_caption,table_caption,equation,section_style
-IEEE,A4/Letter,2,Times New Roman,10,numeric IEEE,below,above,numbered,numbered
-ACM,US Letter,1,ACM template-defined,template-defined,ACM,below,above,template-defined,template styles
-SPRINGER,A4,1,journal/template-defined,journal/template-defined,journal-specific,below,above,journal-specific,journal-specific
-ELSEVIER,A4,1,journal/template-defined,journal/template-defined,journal-specific,below,above,journal-specific,journal-specific

@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS references_table (id TEXT PRIMARY KEY, document_id TE
 CREATE TABLE IF NOT EXISTS journals (id TEXT PRIMARY KEY, name TEXT NOT NULL, payload_json TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS journal_rules (journal_id TEXT PRIMARY KEY, payload_json TEXT NOT NULL, FOREIGN KEY(journal_id) REFERENCES journals(id));
 CREATE TABLE IF NOT EXISTS generated_documents (id TEXT PRIMARY KEY, document_id TEXT NOT NULL, format TEXT NOT NULL, path TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(document_id) REFERENCES documents(id));
+CREATE TABLE IF NOT EXISTS suggestion_decisions (document_id TEXT NOT NULL, suggestion_id TEXT NOT NULL, decision TEXT NOT NULL, edited_text TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (document_id, suggestion_id), FOREIGN KEY(document_id) REFERENCES documents(id));
 """
 
 @contextmanager

@@ -18,6 +18,9 @@ async function request(path, options = {}) {
 }
 
 export const researchApi = {
+  getHealth: () => request('/health'),
+  getAiStatus: () => request('/api/ai/status'),
+  listDocuments: () => request('/api/documents'),
   uploadDocument: (file) => {
     const body = new FormData()
     body.append('file', file)
@@ -33,6 +36,8 @@ export const researchApi = {
   analyze: (module, payload) => request(`/api/${module}/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
   matchJournal: (payload) => request('/api/journal/match', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
   generateImprovement: (payload) => request('/api/improvement/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
+  saveDecision: (payload) => request('/api/improvements/decisions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
+  getDecisions: (documentId) => request(`/api/improvements/decisions/${documentId}`),
   generateReport: (payload) => request('/api/report/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
   formatDocument: (id, payload) => request(`/api/documents/${id}/format`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
   generateDocument: (id, payload) => request(`/api/documents/${id}/generate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }),
