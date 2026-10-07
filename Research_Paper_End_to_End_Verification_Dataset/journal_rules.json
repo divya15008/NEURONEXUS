@@ -1,0 +1,48 @@
+{
+  "IEEE": {
+    "abstract_max_words": 250,
+    "keywords_range": [
+      3,
+      5
+    ],
+    "citation_style": "numeric",
+    "sections": [
+      "Abstract",
+      "Introduction",
+      "Methodology",
+      "Results",
+      "Discussion",
+      "Conclusion",
+      "References"
+    ],
+    "figure_caption": "below",
+    "table_caption": "above"
+  },
+  "ACM": {
+    "citation_style": "venue-dependent",
+    "metadata": [
+      "CCS Concepts",
+      "Keywords"
+    ],
+    "submission_review_modes": [
+      "anonymous",
+      "non-anonymous"
+    ],
+    "publication_workflow": "TAPS"
+  },
+  "Springer-like": {
+    "citation_style": "journal-specific",
+    "sections": [
+      "Abstract",
+      "Keywords",
+      "Introduction",
+      "Methods",
+      "Results",
+      "Discussion",
+      "Conclusion",
+      "References"
+    ],
+    "figure_caption": "below",
+    "table_caption": "above"
+  }
+}

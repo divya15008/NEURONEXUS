@@ -49,3 +49,9 @@ python -m uvicorn backend.main:app --reload --port 8000
 - Only .docx files are accepted in this prototype.
 - The SQLite database is created automatically on startup.
 - Generated files are stored under the backend outputs directory.
+- To enable Groq-backed manuscript assessments, copy the repository-root
+  `.env.example` to `.env`, add your `GROQ_API_KEY`, and restart the backend.
+  Keep `.env` private; it is excluded from Git. Without a key, the app uses
+  its local heuristic assessments. Gemini is also supported using
+  `GEMINI_API_KEY`; set `NEURONEXUS_AI_MODE=local` to disable external AI
+  requests while a key is configured.

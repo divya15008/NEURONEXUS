@@ -2,6 +2,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+.venv311/
 venv/
 node_modules/
 frontend/dist/
@@ -10,3 +11,4 @@ backend/data/*.sqlite3
 backend/outputs/
 .env
 *.log
+Research_Paper_Journal_Template_Training_Pack

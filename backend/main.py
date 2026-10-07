@@ -4,7 +4,9 @@ from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
+from backend.ai_service import AIProviderError
 from backend.api.ai import router as ai_router
 from backend.api.documents import router as documents_router
 from backend.api.citations import router as citations_router
@@ -34,6 +36,11 @@ app.include_router(citations_router)
 app.include_router(journals_router)
 app.include_router(ai_router)
 app.include_router(generation_router)
+
+
+@app.exception_handler(AIProviderError)
+async def handle_ai_provider_error(_, exc: AIProviderError) -> JSONResponse:
+    return JSONResponse(status_code=502, content={"detail": str(exc)})
 
 
 @app.get("/health")

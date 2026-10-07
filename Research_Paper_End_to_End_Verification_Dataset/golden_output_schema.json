@@ -1,0 +1,56 @@
+{
+  "document_analysis": {
+    "metadata": [
+      "title",
+      "authors",
+      "affiliations",
+      "keywords"
+    ],
+    "sections": [
+      "ordered list with heading level"
+    ],
+    "objects": [
+      "tables",
+      "figures",
+      "equations"
+    ],
+    "citations": [
+      "citation_id",
+      "location",
+      "raw_text"
+    ],
+    "references": [
+      "id",
+      "authors",
+      "title",
+      "year",
+      "doi",
+      "raw_text"
+    ]
+  },
+  "verification_report": {
+    "overall_status": "PASS|WARNING|FAIL",
+    "errors": [],
+    "warnings": [],
+    "citation_consistency": {
+      "missing_references": [],
+      "uncited_references": [],
+      "duplicates": []
+    },
+    "journal_compliance": {
+      "passed_rules": [],
+      "failed_rules": []
+    },
+    "readiness_score": 0
+  },
+  "publication_output": {
+    "docx": "generated file",
+    "pdf": "generated file",
+    "submission_package": [
+      "final manuscript",
+      "readiness report",
+      "metadata",
+      "optional supplementary files"
+    ]
+  }
+}

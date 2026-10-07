@@ -247,11 +247,11 @@ function App() {
         </nav>
 
         <div className="sidebar-bottom">
-          <button type="button" className="nav-item">
+          <button type="button" className="nav-item" onClick={() => setActive('dashboard')}>
             <FolderOpen size={17} />
             <span>All manuscripts</span>
           </button>
-          <button type="button" className="nav-item">
+          <button type="button" className="nav-item" onClick={() => setShowHelp(true)}>
             <Settings2 size={17} />
             <span>Settings</span>
           </button>
@@ -268,7 +268,7 @@ function App() {
 
       <main className="main-content">
         <header className="topbar">
-          <button type="button" className="mobile-menu" aria-label="Open menu">
+          <button type="button" className="mobile-menu" aria-label="Open menu" onClick={() => globalThis.document.querySelector('.sidebar')?.classList.toggle('open')}>
             <PanelLeft size={18} />
           </button>
           <div className="breadcrumbs">
@@ -655,6 +655,10 @@ function JournalPage({ document, selectedJournalId, setSelectedJournalId, journa
             <span className="finding-mark neutral">•</span>
             <div><strong>Explanation</strong><span>{journalMatch.explanation}</span></div>
           </div>
+          <div className="finding">
+            <span className="finding-mark neutral">•</span>
+            <div><strong>Template</strong><span>{(() => { const rules = journalList.find((item) => item.journal_id === selectedJournalId) || {}; return [rules.template_name, rules.font ? `${rules.font} ${rules.font_size}pt` : '', rules.columns ? `${rules.columns}-column` : '', rules.citation_style ? `${rules.citation_style} citations` : ''].filter(Boolean).join(' · ') || 'Select a journal to view its template rules.' })()}</span></div>
+          </div>
         </div>
       </section>
     </>
@@ -760,6 +764,8 @@ function MethodologyPage({ methodologyAnalysis, setActive }) {
 }
 
 function ImprovementsPage({ improvements, setActive }) {
+  const [decisions, setDecisions] = useState({})
+  const decide = (id, choice) => setDecisions((prev) => ({ ...prev, [id]: choice }))
   return (
     <>
       <section className="page-intro">
@@ -771,14 +777,16 @@ function ImprovementsPage({ improvements, setActive }) {
         <button type="button" className="primary-button" onClick={() => setActive('report')}>Open readiness report <ArrowUpRight size={16} /></button>
       </section>
       <div className="improvement-list">
-        {(improvements.suggestions || []).map((item) => (
+        {(improvements.suggestions || []).map((item) => {
+          const decision = decisions[item.id]
+          return (
           <div key={item.id} className="panel improvement-card">
             <div className="improvement-header">
-              <span>{item.section}</span>
+              <span>{item.section}{decision ? ` · ${decision}` : ''}</span>
               <div className="button-row">
-                <button type="button" className="chip accept">Accept</button>
-                <button type="button" className="chip reject">Reject</button>
-                <button type="button" className="chip edit">Edit</button>
+                <button type="button" className={decision === 'accepted' ? 'chip accept active' : 'chip accept'} onClick={() => decide(item.id, 'accepted')}>Accept</button>
+                <button type="button" className={decision === 'rejected' ? 'chip reject active' : 'chip reject'} onClick={() => decide(item.id, 'rejected')}>Reject</button>
+                <button type="button" className={decision === 'edited' ? 'chip edit active' : 'chip edit'} onClick={() => decide(item.id, 'edited')}>Edit</button>
               </div>
             </div>
             <div className="comparison-grid">
@@ -792,7 +800,8 @@ function ImprovementsPage({ improvements, setActive }) {
               </div>
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
     </>
   )

@@ -8,7 +8,12 @@ def get_available_journals() -> list[dict]:
 
 
 def get_journal_rules(journal_id: str) -> dict:
+    key = (journal_id or "").strip().lower()
     for rule in load_journal_rules():
-        if rule["journal_id"] == journal_id:
+        if rule["journal_id"].lower() == key:
+            return rule
+    # Accept training-pack ids in any case (e.g. "IEEE_CONFERENCE").
+    for rule in load_journal_rules():
+        if rule.get("template_id", "").lower() == key:
             return rule
     raise ValueError(f"Unsupported journal: {journal_id}")

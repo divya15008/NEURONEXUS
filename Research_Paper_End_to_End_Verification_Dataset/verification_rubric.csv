@@ -1,0 +1,12 @@
+Module,Pass criterion,Weight
+Document ingestion,DOCX opens without corruption,10
+Structural analysis,Sections/headings detected correctly,10
+Object extraction,"Tables, figures, equations, captions detected",10
+Citation parsing,All in-text citations detected,10
+Reference parsing,Reference list normalized into records,10
+Consistency verification,Missing/uncited/duplicate citations detected,10
+Journal suitability,Scope/readiness analysis generated,10
+Formatting engine,Target style applied correctly,15
+Content preservation,No unintended research-content changes,5
+Output generation,DOCX + PDF generated successfully,5
+Readiness report,Actionable errors/warnings/scores generated,5
