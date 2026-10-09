@@ -15,7 +15,9 @@ async function request(path, options = {}) {
     } catch {
       // Ignore parse failures and keep the default status message.
     }
-    throw new Error(message)
+    const error = new Error(message)
+    error.status = response.status
+    throw error
   }
   const type = response.headers.get('content-type') || ''
   return type.includes('application/json') ? response.json() : response.blob()

@@ -1,51 +1,40 @@
-# Research Publication Pipeline Backend
+# PaperPilot backend
 
-This backend implements the Half 1 publication engine for DOCX-driven manuscript preparation.
+FastAPI service for authenticated manuscript upload, analysis, journal-profile checks, formatting, and output generation.
 
-## Features
+## Run locally
 
-- DOCX upload validation and secure storage
-- Document analysis for authors, abstract, keywords, and section extraction
-- Figure, table, equation, citation, and reference extraction
-- Citation/reference validation and duplicate detection
-- Journal rule lookup and formatting metadata
-- DOCX/PDF generation and submission package assembly
+From the repository root:
 
-## Quick start
-
-```bash
-cd <repo-root>
-python -m pip install -r backend/requirements.txt
+```powershell
+python -m pip install -r backend\requirements.txt
 python -m uvicorn backend.main:app --reload --port 8000
 ```
 
-## Main API endpoints
+The SQLite database is initialized on startup. API documentation is available at http://localhost:8000/docs and the health endpoint is `/health`.
 
-- POST /api/documents/upload
-- GET /api/documents/{document_id}
-- POST /api/documents/{document_id}/analyze
-- GET /api/documents/{document_id}/structure
-- POST /api/citations/check
-- GET /api/citations/{document_id}
-- GET /api/journals
-- GET /api/journals/{journal_id}/rules
-- POST /api/quality/analyze
-- POST /api/novelty/analyze
-- POST /api/methodology/analyze
-- POST /api/contribution/analyze
-- POST /api/writing/analyze
-- POST /api/journal/match
-- POST /api/improvement/generate
-- POST /api/report/generate
-- POST /api/documents/{document_id}/format
-- POST /api/documents/{document_id}/generate
-- GET /api/documents/{document_id}/download/docx
-- GET /api/documents/{document_id}/download/pdf
-- GET /api/documents/{document_id}/download/report
-- GET /api/documents/{document_id}/download/zip
+## Main API areas
 
-## Notes
+- `/api/auth/` — account registration, sign-in, optional Google sign-in, current user, and sign-out.
+- `/api/documents` — authenticated upload, listing, dashboard summary, document retrieval, parsing/analysis, structure, and saved analysis results.
+- `/api/citations` — citation consistency checks and a document's saved citation report.
+- `/api/journals` and `/api/journal` — configured journal profiles, rules, and manuscript-fit assessment.
+- `/api/quality`, `/api/novelty`, `/api/methodology`, `/api/contribution`, `/api/completeness`, `/api/writing`, `/api/improvement`, and `/api/report` — assessment and recommendation routes.
+- `/api/documents/{document_id}/format` and `/generate` — profile formatting checks and output generation.
+- `/api/documents/{document_id}/download/{format}` — generated DOCX, PDF, readiness report, and ZIP downloads.
+- `/api/ai/status` — reports the configured analysis mode; it is configuration information, not a provider uptime check.
 
-- Only .docx files are accepted in this prototype.
-- The SQLite database is created automatically on startup.
-- Generated files are stored under the backend outputs directory.
+## Files and supported inputs
+
+- Uploads accept DOCX and text-based PDF files up to 15 MiB. Scanned/image-only PDFs need OCR, which is not configured.
+- Uploaded sources and the SQLite database are stored under `backend/data/`.
+- Generated files are stored under `backend/outputs/`, separately from the original upload.
+- PDF parsing and reconstruction may not preserve source layout, figures, or tables. Generated PDF rendering is text-based and does not guarantee office-layout fidelity.
+
+Document routes enforce ownership using the authenticated account. The backend can run deterministic local assessments without an external AI provider. Provider-assisted analysis is optional; when enabled, manuscript-derived data may be sent to that configured provider. Store credentials only in the ignored repository-root `.env`, never in source control.
+
+Run the backend tests from the repository root:
+
+```powershell
+python -m pytest backend\tests -q
+```

@@ -1,33 +1,24 @@
-# PaperPilot (NeuroNexus)
+# PaperPilot (NEURONEXUS)
 
-AI-powered **Research Paper Automation & Journal Readiness Platform** — upload a DOCX or text-based PDF manuscript, analyze structure and citations, run journal-fit and quality checks, and export a formatted submission package (DOCX + PDF + readiness report).
+PaperPilot is a research-manuscript preparation prototype. Users can create an account, upload a DOCX or text-based PDF, inspect extracted structure and citation findings, review journal-fit and manuscript assessments, and generate formatted DOCX/PDF and report/package outputs.
 
-## Hackathon feature coverage
+Assessments are intended to support researcher review. They do not verify scientific truth, establish global originality, predict acceptance, or replace a journal's current author instructions. Journal-fit matching uses configured profiles and text matching; external scholarly search is not configured. PDF extraction and reconstructed exports may not preserve the source layout, figures, or tables. Scanned/image-only PDFs are not supported because OCR is not enabled.
 
-| Requirement | Implementation |
-|-------------|----------------|
-| 1. Research document analysis | DOCX and text-based PDF upload, section/citation/reference extraction (`backend/document/`) |
-| 2. Journal template automation | Nature & IEEE rules, formatting engine (`backend/formatting/`, `POST .../format`) |
-| 3. Citation & reference management | Parser, validator, duplicate detection (`backend/citation/`) |
-| 4. AI journal readiness & quality | Quality, novelty, methodology, writing, journal match, report (`backend/ai_service.py`, `backend/api/ai.py`) |
-| 5. Publication-ready document generation | DOCX generator with journal styling (`backend/generator/`) |
-| 6. Export & submission package | DOCX/PDF download + submission folder (`POST .../generate`, download endpoints) |
+## Requirements
 
-## Quick start
+- Python with the packages in `backend/requirements.txt`
+- Node.js/npm compatible with the Vite version in `frontend/package.json`
 
-### Backend (FastAPI)
+## Run locally
+
+From the repository root, install backend dependencies and start the API:
 
 ```powershell
-cd <repo-root>
 python -m pip install -r backend\requirements.txt
 python -m uvicorn backend.main:app --reload --port 8000
 ```
 
-API docs: http://localhost:8000/docs
-
-Create an account in the app with your name, email, and a password of at least 10 characters. Each account can access only its own uploaded manuscripts. Manuscript uploads support DOCX and text-based PDF files (up to 15 MB); scanned/image-only PDFs need OCR and are not supported. PDF text extraction may not preserve the original visual layout, figures, or tables in the reconstructed export. To enable Google sign-in, create a Google Identity Services Web OAuth client, add the app's authorized JavaScript origin (for example `http://localhost:5173` or `http://127.0.0.1:5173`), then set `GOOGLE_CLIENT_ID` in the repository-root `.env` file and restart the backend. The Google button is unavailable until this is configured.
-
-### Frontend (React + Vite)
+In a second terminal:
 
 ```powershell
 cd frontend
@@ -35,32 +26,49 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173 and sign in or create an account — the dev server proxies `/api` to the backend.
+Open http://localhost:5173. Vite proxies `/api` and `/health` to the backend on port 8000. Interactive API documentation is available at http://localhost:8000/docs.
 
-Optional: set `VITE_API_BASE_URL=http://localhost:8000` in `frontend/.env` if not using the proxy.
+Create an account with a name, valid email address, and password of at least 10 characters. Document endpoints require authentication and limit manuscript access to the owning account. Google sign-in is optional and requires a Google Identity Services Web OAuth client ID configured as `GOOGLE_CLIENT_ID` in the repository-root `.env`.
+
+Uploads are limited to DOCX and text-based PDF files up to 15 MiB. Uploaded files and the SQLite database are stored under `backend/data/`; generated artifacts are stored under `backend/outputs/`. These are local application data and should not be committed.
 
 ## Typical workflow
 
-1. **Upload** a `.docx` file from Dashboard or Upload.
-2. Backend **parses** the manuscript and runs **citation checks**.
-3. **AI modules** populate Quality, Novelty, Methodology, Journal fit, Improvements, and Report tabs.
-4. On **Export**, click **Generate submission package**, then download **DOCX** and **PDF**.
+1. Create an account or sign in.
+2. Upload a DOCX or text-based PDF manuscript.
+3. Review extracted metadata, sections, figures, tables, equations, citations, and references.
+4. Review citation consistency, configured journal fit, and quality, completeness, methodology, contribution, novelty-framing, and writing assessments.
+5. Review advisory recommendations and the readiness report.
+6. Select a journal profile, check formatting rules, generate outputs, and download available files.
 
-## Tests
+Generated PDF rendering is text-based and does not guarantee office-layout fidelity. Review generated files and verify all requirements against the publisher's current instructions before submission.
+
+## AI configuration and privacy
+
+Without a configured external provider, the backend uses deterministic local analysis. Setting `PAPERPILOT_AI_PROVIDER` to a supported provider and configuring its API key enables provider-assisted structured assessments. In that mode, manuscript-derived content is sent to the configured provider; do not enable it for confidential work unless the provider's data terms and your institutional requirements permit it. Never commit real credentials. Keep them in the ignored repository-root `.env`.
+
+## Tests and build
 
 From the repository root:
 
 ```powershell
-python -m pytest backend\tests\test_pipeline.py -q
+python -m pytest backend\tests -q
 ```
+
+Build the frontend from its directory:
+
+```powershell
+cd frontend
+npm run build
+```
+
+The backend tests cover selected authentication, analysis, and document-pipeline behavior; they are not a substitute for full end-to-end or publisher compliance testing.
+Tests use temporary database, upload, and output directories so they do not modify local application data.
 
 ## Project layout
 
-- `backend/` — FastAPI API, document engine, citations, formatting, PDF/DOCX generation
-- `frontend/` — PaperPilot UI (`src/App.jsx`, `src/services/api.js`)
-
-## Team / deliverables
-
-- Working prototype: this repository
-- PPT & abstract: prepare separately for submission
-- Public GitHub: push this repo and share the link in your hackathon form
+- `backend/api/` — authenticated FastAPI routes for accounts, documents, analysis, journals, citations, formatting, and downloads.
+- `backend/document/`, `backend/citation/`, `backend/journal/`, `backend/formatting/`, `backend/generator/` — parsing, checks, profiles, formatting, and artifact generation.
+- `backend/tests/` — automated backend tests.
+- `frontend/src/` — React application, authentication screen, shared API client, and styles.
+- Backend tests build synthetic manuscripts for their upload and analysis scenarios; no real research manuscripts are needed to run the suite.

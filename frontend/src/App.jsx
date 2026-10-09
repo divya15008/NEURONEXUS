@@ -4,9 +4,7 @@ import {
   BarChart3,
   BookOpen,
   Check,
-  ChevronDown,
   ChevronRight,
-  CircleHelp,
   ClipboardCheck,
   FileText,
   FolderOpen,
@@ -14,7 +12,6 @@ import {
   Globe2,
   LogOut,
   Moon,
-  MoreHorizontal,
   PanelLeft,
   Plus,
   Settings2,
@@ -22,7 +19,6 @@ import {
   Sparkles,
   Sun,
   UploadCloud,
-  X,
   Zap,
 } from 'lucide-react'
 import AuthScreen from './AuthScreen'
@@ -98,7 +94,6 @@ function ResearchWorkspace({ user, onSignOut }) {
   const [theme, setTheme] = useState(() => localStorage.getItem('paperpilot-theme') || 'light')
   const [active, setActive] = useState('dashboard')
   const [showMobileMenu, setShowMobileMenu] = useState(false)
-  const [showHelp, setShowHelp] = useState(false)
   const [selectedJournalId, setSelectedJournalId] = useState(() => localStorage.getItem('paperpilot-journal') || 'nature')
   const [journalList, setJournalList] = useState([])
   const [dashboardSummary, setDashboardSummary] = useState(null)
@@ -155,19 +150,30 @@ function ResearchWorkspace({ user, onSignOut }) {
   useEffect(() => {
     refreshManuscripts()
     researchApi.getJournals().then((body) => setJournalList(body.journals || [])).catch(() => setJournalList([]))
-    researchApi.getAiStatus().then(setAiStatus).catch(() => setAiStatus({ status: 'limited_analysis', message: 'AI provider status unavailable; local analysis remains active.' }))
+    researchApi.getAiStatus().then(setAiStatus).catch(() => setAiStatus({ status: 'unavailable', message: 'Provider configuration unavailable.' }))
   }, [])
 
   const loadAnalysisModules = async (documentId, analysisPayload) => {
     const request = { document_id: documentId, analysis: analysisPayload, journal_id: selectedJournalId }
+    const loadSavedOrCompute = async (module, compute) => {
+      try {
+        const saved = await researchApi.getSavedAnalysis(documentId, module)
+        return saved.result
+      } catch (error) {
+        if (error.status !== 404) throw error
+        return compute()
+      }
+    }
+
+    // Recompute profile-dependent results because saved payloads do not identify their journal.
     const [quality, novelty, methodology, contribution, completeness, journal, writing, improvement] = await Promise.all([
       researchApi.analyze('quality', request),
-      researchApi.analyze('novelty', request),
-      researchApi.analyze('methodology', request),
-      researchApi.analyze('contribution', request),
+      loadSavedOrCompute('novelty', () => researchApi.analyze('novelty', request)),
+      loadSavedOrCompute('methodology', () => researchApi.analyze('methodology', request)),
+      loadSavedOrCompute('contribution', () => researchApi.analyze('contribution', request)),
       researchApi.analyze('completeness', request),
       researchApi.matchJournal({ ...request, journal_id: selectedJournalId }),
-      researchApi.analyze('writing', request),
+      loadSavedOrCompute('writing', () => researchApi.analyze('writing', request)),
       researchApi.generateImprovement({ ...request, focus: 'research quality' }),
     ])
     const reportDetails = await researchApi.generateReport({
@@ -216,8 +222,10 @@ function ResearchWorkspace({ user, onSignOut }) {
     setIsUploading(true)
     setStatusMessage('Uploading and analyzing manuscript...')
 
+    let documentCreated = false
     try {
       const uploaded = await researchApi.uploadDocument(file)
+      documentCreated = true
       const articleId = uploaded.document_id
       const analyzed = await researchApi.analyzeDocument(articleId, { journal_id: selectedJournalId })
       const analysisPayload = { ...defaultAnalysis, ...analyzed, document_id: articleId }
@@ -232,7 +240,8 @@ function ResearchWorkspace({ user, onSignOut }) {
       setActive('report')
     } catch (error) {
       setUploadError(error.message || 'The upload or analysis request failed.')
-      setStatusMessage('Upload failed — please retry.')
+      setStatusMessage(documentCreated ? 'Document uploaded, but analysis failed.' : 'Upload failed — please retry.')
+      if (documentCreated) await refreshManuscripts()
     } finally {
       setIsUploading(false)
       event.target.value = ''
@@ -263,16 +272,15 @@ function ResearchWorkspace({ user, onSignOut }) {
           </div>
         </div>
 
-        <div className="workspace-switch">
+        <div className="account-identity">
           <div className="avatar">{userInitials}</div>
           <div>
             <span>{user.name}</span>
             <small>{user.email}</small>
           </div>
-          <ChevronDown size={15} />
         </div>
 
-        <p className="nav-label">WORKSPACE</p>
+        <p className="nav-label">MANUSCRIPT TOOLS</p>
         <nav>
           {navigation.map(({ label, icon: Icon, id }) => (
             <button
@@ -314,12 +322,10 @@ function ResearchWorkspace({ user, onSignOut }) {
             <span>Settings</span>
           </button>
           <div className="sidebar-footer">
-            <div className="avatar small">AI</div>
             <div>
-              <span>AI services</span>
-              <small className="status-dot">{aiStatus.status === 'configured' ? `${aiStatus.provider} enabled` : 'Limited analysis'}</small>
+              <span>Analysis configuration</span>
+              <small className="status-dot">{aiStatus.message}</small>
             </div>
-            <MoreHorizontal size={17} />
           </div>
         </div>
       </aside>
@@ -345,14 +351,11 @@ function ResearchWorkspace({ user, onSignOut }) {
             <PanelLeft size={18} />
           </button>
           <div className="breadcrumbs">
-            <span>Workspace</span>
+            <span>PaperPilot</span>
             <ChevronRight size={14} />
             <strong>{currentTitle}</strong>
           </div>
           <div className="top-actions">
-            <button type="button" className="icon-button" onClick={() => setShowHelp(!showHelp)} title="Help">
-              <CircleHelp size={18} />
-            </button>
             <ThemeToggle theme={theme} setTheme={setTheme} />
             <div className="top-avatar" title={user.email}>{userInitials}</div>
             <button type="button" className="signout-button" onClick={onSignOut} title="Sign out">
@@ -362,26 +365,16 @@ function ResearchWorkspace({ user, onSignOut }) {
           </div>
         </header>
 
-        {showHelp && (
-          <div className="help-popover">
-            <strong>Need a hand?</strong>
-            <span>The system flags evidence gaps and improvement opportunities while keeping you in control.</span>
-            <button type="button" onClick={() => setShowHelp(false)}><X size={14} /></button>
-          </div>
-        )}
-
         <div className="page-container">
           {active === 'dashboard' && (
             <Dashboard
               manuscripts={manuscripts}
               dashboardSummary={dashboardSummary}
-              aiStatus={aiStatus}
               isLoadingManuscripts={isLoadingManuscripts}
               manuscriptError={manuscriptError}
               setActive={setActive}
               onOpenManuscript={openManuscript}
               onUpload={handleFileUpload}
-              isUploading={isUploading}
               statusMessage={statusMessage}
               uploadError={uploadError}
             />
@@ -411,7 +404,7 @@ function ResearchWorkspace({ user, onSignOut }) {
             <UploadPage onUpload={handleFileUpload} isUploading={isUploading} statusMessage={statusMessage} uploadError={uploadError} />
           )}
 
-          {active === 'analysis' && <AnalysisPage document={document} setActive={setActive} citationReport={citationReport} />}
+          {active === 'analysis' && <AnalysisPage document={document} setActive={setActive} citationReport={citationReport} report={report} />}
           {active === 'citations' && <CitationPage citationReport={citationReport} document={document} setActive={setActive} />}
           {active === 'journal' && (
             <JournalPage
@@ -567,7 +560,7 @@ function SettingsPage({ theme, setTheme, selectedJournalId, setSelectedJournalId
   )
 }
 
-function Dashboard({ manuscripts, dashboardSummary, aiStatus, isLoadingManuscripts, manuscriptError, setActive, onOpenManuscript, onUpload, isUploading, statusMessage, uploadError }) {
+function Dashboard({ manuscripts, dashboardSummary, isLoadingManuscripts, manuscriptError, setActive, onOpenManuscript, onUpload, statusMessage, uploadError }) {
   return (
     <>
       <section className="page-intro">
@@ -583,23 +576,25 @@ function Dashboard({ manuscripts, dashboardSummary, aiStatus, isLoadingManuscrip
         </label>
       </section>
 
-      <section className="upload-banner">
+      <section className="upload-banner" role={uploadError ? 'alert' : 'status'} aria-live="polite">
         <div className="upload-icon"><UploadCloud size={23} /></div>
         <div>
           <strong>{statusMessage}</strong>
           <span>{uploadError || 'Upload a DOCX or text-based PDF and the system will structure the manuscript, check citations, and run the research quality evaluation.'}</span>
         </div>
-        <label className="outline-button">
-          {isUploading ? 'Processing...' : 'Upload DOCX / PDF'}
-          <ArrowUpRight size={15} />
-          <input type="file" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden onChange={onUpload} />
-        </label>
       </section>
 
       <section className="stats-grid">
         <Stat label="Manuscripts" value={dashboardSummary?.manuscript_count ?? '—'} detail="stored documents" icon={FileText} />
         <Stat label="Readiness" value={dashboardSummary?.readiness_average ?? '—'} suffix={dashboardSummary?.readiness_average == null ? '' : '/100'} detail={dashboardSummary?.analyzed_count ? `average across ${dashboardSummary.analyzed_count} analyzed` : 'No analyzed manuscripts'} icon={Gauge} green />
-        <Stat label="Open suggestions" value={dashboardSummary?.open_suggestions ?? '—'} detail={`${dashboardSummary?.high_priority_suggestions ?? 0} critical or high priority`} icon={Sparkles} />
+        <Stat
+          label="Recommendations"
+          value={dashboardSummary?.open_suggestions ?? '—'}
+          detail={dashboardSummary
+            ? `${dashboardSummary.high_priority_suggestions} critical or high priority`
+            : isLoadingManuscripts ? 'Loading summary...' : 'Summary unavailable'}
+          icon={Sparkles}
+        />
       </section>
 
       <section className="section-heading">
@@ -630,7 +625,6 @@ function Dashboard({ manuscripts, dashboardSummary, aiStatus, isLoadingManuscrip
         <ModuleCard title="Novelty framing" eyebrow="02 / Internal analysis" text="Measures clarity of novelty claims; no external similarity search is configured." value={dashboardSummary?.dimension_averages?.novelty_framing ?? '—'} unit="/100" tone="mint" icon={Sparkles} onClick={() => setActive('novelty')} />
         <ModuleCard title="Methodology" eyebrow="03 / Reproducibility" text="Dataset, setup, metrics, baselines, and reproducibility evidence." value={dashboardSummary?.dimension_averages?.methodology ?? '—'} unit="/100" tone="peach" icon={ClipboardCheck} onClick={() => setActive('methodology')} />
       </div>
-      <p className="muted-label">AI status: {aiStatus.message}</p>
     </>
   )
 }
@@ -643,8 +637,8 @@ function UploadPage({ onUpload, isUploading, statusMessage, uploadError }) {
       <p className="subtitle">DOCX and text-based PDF are supported. Scanned PDFs require OCR, which is not enabled.</p>
       <label className="dropzone">
         <UploadCloud size={32} />
-        <span>Drag & drop your manuscript here</span>
-        <strong>or click to browse</strong>
+        <span>Select a DOCX or text-based PDF manuscript</span>
+        <strong>Choose a file</strong>
         <input type="file" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={onUpload} />
       </label>
       <div className="status-box">
@@ -655,7 +649,9 @@ function UploadPage({ onUpload, isUploading, statusMessage, uploadError }) {
   )
 }
 
-function AnalysisPage({ document, setActive, citationReport }) {
+function AnalysisPage({ document, setActive, citationReport, report }) {
+  if (!document?.document_id) return <AnalysisRequired setActive={setActive} />
+
   const counts = {
     sections: document.sections?.length || 0,
     figures: document.figures?.length || 0,
@@ -671,14 +667,16 @@ function AnalysisPage({ document, setActive, citationReport }) {
         <div>
           <p className="kicker">DOCUMENT INTELLIGENCE</p>
           <h1>Document analysis<span className="period">.</span></h1>
-          <p className="subtitle">Detected manuscript structure, metadata, and publication-ready signals.</p>
+          <p className="subtitle">Extracted manuscript structure and metadata.</p>
         </div>
         <button type="button" className="primary-button" onClick={() => setActive('citations')}>Check citations <ArrowUpRight size={16} /></button>
       </section>
 
       <section className="analysis-hero">
         <div className="analysis-score">
-          <span className="score-ring">92%</span>
+          {report?.document_id === document.document_id && typeof report.overall_readiness === 'number' && (
+            <span className="score-ring">{report.overall_readiness}<small>/100</small></span>
+          )}
           <div>
             <span className="eyebrow">{document.document_id}</span>
             <h2>{document.title}</h2>
@@ -878,7 +876,7 @@ function AnalysisRequired({ setActive }) {
   return (
     <section className="status-box">
       <strong>No manuscript analysis loaded.</strong>
-      <p>Upload a DOCX or open a saved manuscript to view evidence-based results.</p>
+      <p>Upload a DOCX or text-based PDF, or open a saved manuscript to view analysis results.</p>
       <button type="button" className="outline-button" onClick={() => setActive('upload')}>Upload manuscript</button>
     </section>
   )
@@ -1238,7 +1236,6 @@ function ExportPage({ document, selectedJournal, selectedJournalId, setActive })
     setExportStatus('working')
     setExportMessage('Applying journal template and building submission package...')
     try {
-      await researchApi.formatDocument(document.document_id, { journal_id: selectedJournalId })
       const generated = await researchApi.generateDocument(document.document_id, { journal_id: selectedJournalId })
       setExportWarnings(generated.formatting_warnings || [])
       setExportStatus('ready')
