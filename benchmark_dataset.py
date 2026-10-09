@@ -1,10 +1,12 @@
 import json
+import os
 from pathlib import Path
 
 import requests
 
-base = Path('c:/Users/Deekshith/Downloads/pytest_cache/NEURONEXUS_TEST_DATASET_90/NEURONEXUS_TEST_DATASET_90')
-api = 'http://127.0.0.1:8001'
+REPO_ROOT = Path(__file__).resolve().parent
+base = Path(os.getenv('NEURONEXUS_DATASET_DIR', REPO_ROOT / 'NEURONEXUS_TEST_DATASET_90' / 'NEURONEXUS_TEST_DATASET_90'))
+api = os.getenv('NEURONEXUS_API_URL', 'http://127.0.0.1:8000')
 categories = [
     '01_valid_complete',
     '02_citation_issues',

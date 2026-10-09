@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowUpRight,
+  AlertTriangle,
+  ArrowRight,
   BarChart3,
   BookOpen,
   Check,
@@ -13,7 +14,7 @@ import {
   LogOut,
   Moon,
   PanelLeft,
-  Plus,
+  RefreshCw,
   Settings2,
   ShieldCheck,
   Sparkles,
@@ -24,14 +25,14 @@ import {
 import AuthScreen from './AuthScreen'
 import { researchApi } from './services/api'
 
-const navigation = [
+const NAV = [
   { label: 'Dashboard', icon: Gauge, id: 'dashboard' },
   { label: 'Upload', icon: UploadCloud, id: 'upload' },
   { label: 'Document Analysis', icon: FileText, id: 'analysis' },
   { label: 'Citations', icon: BookOpen, id: 'citations' },
-  { label: 'Journal', icon: Globe2, id: 'journal' },
+  { label: 'Journal Fit', icon: Globe2, id: 'journal' },
   { label: 'Quality', icon: BarChart3, id: 'quality' },
-  { label: 'Novelty', icon: Sparkles, id: 'novelty' },
+  { label: 'Novelty & Similarity', icon: Sparkles, id: 'novelty' },
   { label: 'Methodology', icon: ClipboardCheck, id: 'methodology' },
   { label: 'Contribution', icon: BarChart3, id: 'contribution' },
   { label: 'Writing', icon: FileText, id: 'writing' },
@@ -39,6 +40,7 @@ const navigation = [
   { label: 'Report', icon: ShieldCheck, id: 'report' },
   { label: 'Formatting', icon: FileText, id: 'formatting' },
   { label: 'Export', icon: FolderOpen, id: 'export' },
+  { label: 'Settings', icon: Settings2, id: 'settings' },
 ]
 
 const defaultAnalysis = {
@@ -78,15 +80,14 @@ const citationIssueCategories = [
 
 function ThemeToggle({ theme, setTheme }) {
   return (
-    <button
-      type="button"
-      className="theme-toggle"
-      onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-      aria-label="Toggle theme"
-      title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-    >
-      {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-    </button>
+    <section className="page-intro">
+      <div>
+        <p className="kicker">{kicker}</p>
+        <h1>{title}</h1>
+        <p className="subtitle">{subtitle}</p>
+      </div>
+      {action}
+    </section>
   )
 }
 
@@ -122,7 +123,7 @@ function ResearchWorkspace({ user, onSignOut }) {
   const [statusMessage, setStatusMessage] = useState('Ready for upload')
 
   useEffect(() => {
-    globalThis.document.documentElement.dataset.theme = theme
+    document.documentElement.dataset.theme = theme
     localStorage.setItem('paperpilot-theme', theme)
   }, [theme])
 
@@ -265,10 +266,10 @@ function ResearchWorkspace({ user, onSignOut }) {
     <div className="app-shell">
       <aside id="sidebar-navigation" className={showMobileMenu ? 'sidebar mobile-open' : 'sidebar'}>
         <div className="brand">
-          <div className="brand-mark">p</div>
+          <div className="brand-mark" aria-hidden="true">P</div>
           <div>
             <strong>PaperPilot</strong>
-            <small>research readiness</small>
+            <small>Manuscript preparation</small>
           </div>
         </div>
 
@@ -282,7 +283,7 @@ function ResearchWorkspace({ user, onSignOut }) {
 
         <p className="nav-label">MANUSCRIPT TOOLS</p>
         <nav>
-          {navigation.map(({ label, icon: Icon, id }) => (
+          {NAV.map(({ label, icon: Icon, id }) => (
             <button
               type="button"
               key={id}
@@ -292,7 +293,7 @@ function ResearchWorkspace({ user, onSignOut }) {
                 setShowMobileMenu(false)
               }}
             >
-              <Icon size={17} />
+              <Icon size={17} aria-hidden="true" />
               <span>{label}</span>
             </button>
           ))}
@@ -366,6 +367,9 @@ function ResearchWorkspace({ user, onSignOut }) {
         </header>
 
         <div className="page-container">
+          <ErrorBox message={errors['loading-doc']} />
+          {busy['loading-doc'] && <LoadingRow label="Loading manuscript..." />}
+
           {active === 'dashboard' && (
             <Dashboard
               manuscripts={manuscripts}
@@ -401,20 +405,134 @@ function ResearchWorkspace({ user, onSignOut }) {
           )}
 
           {active === 'upload' && (
-            <UploadPage onUpload={handleFileUpload} isUploading={isUploading} statusMessage={statusMessage} uploadError={uploadError} />
+            <UploadPage uploadState={uploadState} onFiles={handleFiles} hasDocument={Boolean(documentId)} />
+          )}
+          {active === 'analysis' && (
+            <AnalysisPage analysis={analysis} docMeta={docMeta} documentId={documentId} citationReport={citationReport} onGoUpload={() => go('upload')} onNext={() => go('citations')} />
+          )}
+          {active === 'citations' && (
+            <CitationPage
+              analysis={analysis}
+              documentId={documentId}
+              citationReport={citationReport}
+              busy={busy.citations}
+              error={errors.citations}
+              onRecheck={async () => {
+                const data = await runAssessment('citations', () => researchApi.getCitations(documentId))
+                if (data) setCitationReport(data)
+              }}
+              onGoUpload={() => go('upload')}
+              onNext={() => go('journal')}
+            />
           )}
 
           {active === 'analysis' && <AnalysisPage document={document} setActive={setActive} citationReport={citationReport} report={report} />}
           {active === 'citations' && <CitationPage citationReport={citationReport} document={document} setActive={setActive} />}
           {active === 'journal' && (
             <JournalPage
-              document={document}
-              selectedJournalId={selectedJournalId}
-              setSelectedJournalId={setSelectedJournalId}
+              analysis={analysis}
+              documentId={documentId}
               journalList={journalList}
+              selectedJournalId={selectedJournalId}
+              selectedJournal={selectedJournal}
               journalMatch={journalMatch}
-              setJournalMatch={setJournalMatch}
-              setActive={setActive}
+              busy={busy.journal}
+              error={errors.journal}
+              onSelect={async (next) => {
+                setSelectedJournalId(next)
+                localStorage.setItem('paperpilot-journal', next)
+                if (!documentId || !analysis) return
+                setBusyKey('journal', true)
+                setErrorKey('journal', '')
+                try {
+                  const match = await researchApi.matchJournal({ document_id: documentId, analysis, journal_id: next })
+                  setJournalMatch(match)
+                } catch (error) {
+                  setJournalMatch(null)
+                  setErrorKey('journal', (error.message || 'Journal-fit assessment failed.') + ' Previous results were cleared.')
+                } finally {
+                  setBusyKey('journal', false)
+                }
+              }}
+              onGoUpload={() => go('upload')}
+              onNext={() => go('quality')}
+            />
+          )}
+          {active === 'quality' && (
+            <QualityPage
+              data={quality} contribution={contribution}
+              busy={busy.quality} error={errors.quality}
+              hasDocument={Boolean(analysis)}
+              onRun={async () => {
+                const q = await runAssessment('quality', () => researchApi.analyze('quality', { document_id: documentId, analysis }))
+                if (q) setQuality(q)
+                const c = await runAssessment('quality', () => researchApi.analyze('contribution', { document_id: documentId, analysis }))
+                if (c) setContribution(c)
+              }}
+              onGoUpload={() => go('upload')} onNext={() => go('novelty')}
+            />
+          )}
+          {active === 'novelty' && (
+            <NoveltyPage
+              data={novelty} busy={busy.novelty} error={errors.novelty} hasDocument={Boolean(analysis)}
+              onRun={async () => {
+                const n = await runAssessment('novelty', () => researchApi.analyze('novelty', { document_id: documentId, analysis }))
+                if (n) setNovelty(n)
+              }}
+              onGoUpload={() => go('upload')} onNext={() => go('methodology')}
+            />
+          )}
+          {active === 'methodology' && (
+            <MethodologyPage
+              data={methodology} busy={busy.method} error={errors.method} hasDocument={Boolean(analysis)}
+              onRun={async () => {
+                const m = await runAssessment('method', () => researchApi.analyze('methodology', { document_id: documentId, analysis }))
+                if (m) setMethodology(m)
+              }}
+              onGoUpload={() => go('upload')} onNext={() => go('improvements')}
+            />
+          )}
+          {active === 'improvements' && (
+            <ImprovementsPage
+              documentId={documentId}
+              analysis={analysis}
+              improvements={improvements}
+              decisions={decisions}
+              busy={busy.improvements}
+              error={errors.improvements}
+              onGenerate={async () => {
+                const imp = await runAssessment('improvements', () => researchApi.generateImprovement({ document_id: documentId, analysis, focus: 'research quality' }))
+                if (imp) {
+                  setImprovements(imp)
+                  const decs = await researchApi.getDecisions(documentId).catch(() => ({ decisions: [] }))
+                  setDecisions(decs.decisions || [])
+                }
+              }}
+              onDecide={async (suggestionId, decision, editedText) => {
+                await researchApi.saveDecision({ document_id: documentId, suggestion_id: suggestionId, decision, edited_text: editedText ?? null })
+                const decs = await researchApi.getDecisions(documentId).catch(() => ({ decisions: [] }))
+                setDecisions(decs.decisions || [])
+              }}
+              onGoUpload={() => go('upload')} onNext={() => go('report')}
+            />
+          )}
+          {active === 'report' && (
+            <ReportPage
+              analysis={analysis} docMeta={docMeta} documentId={documentId}
+              selectedJournal={selectedJournal} citationReport={citationReport}
+              quality={quality} novelty={novelty} methodology={methodology}
+              writing={writing} journalMatch={journalMatch}
+              improvements={improvements} decisions={decisions}
+              hasGenerated={manuscripts.some((m) => m.document_id === documentId && m.has_generated)}
+              report={report} busy={busy.report} error={errors.report}
+              onGenerate={async () => {
+                const rep = await runAssessment('report', () => researchApi.generateReport({
+                  document_id: documentId, analysis, quality_analysis: quality, selected_journal: selectedJournalId,
+                }))
+                if (rep) setReport(rep)
+              }}
+              needsQuality={Boolean(analysis) && !quality}
+              onGoUpload={() => go('upload')} onNext={() => go('export')}
             />
           )}
           {active === 'quality' && <QualityPage qualityAnalysis={qualityAnalysis} completenessAnalysis={completenessAnalysis} setActive={setActive} />}
@@ -427,10 +545,18 @@ function ResearchWorkspace({ user, onSignOut }) {
           {active === 'formatting' && <FormattingPage document={document} selectedJournalId={selectedJournalId} selectedJournal={selectedJournal} setActive={setActive} />}
           {active === 'export' && (
             <ExportPage
-              document={document}
-              selectedJournal={selectedJournal}
-              selectedJournalId={selectedJournalId}
-              setActive={setActive}
+              analysis={analysis} documentId={documentId}
+              selectedJournal={selectedJournal} selectedJournalId={selectedJournalId}
+              exportState={exportState} setExportState={setExportState}
+              onGenerated={refreshLibrary} onGoUpload={() => go('upload')}
+            />
+          )}
+          {active === 'settings' && (
+            <SettingsPage
+              theme={theme} setTheme={setTheme}
+              journalList={journalList} selectedJournalId={selectedJournalId}
+              onDefaultJournal={(id) => { setSelectedJournalId(id); localStorage.setItem('paperpilot-journal', id) }}
+              aiStatus={aiStatus} backendOk={backendOk}
             />
           )}
         </div>
@@ -599,8 +725,8 @@ function Dashboard({ manuscripts, dashboardSummary, isLoadingManuscripts, manusc
 
       <section className="section-heading">
         <div>
-          <p className="kicker">RECENT FILES</p>
-          <h2>Recent manuscripts</h2>
+          <p className="kicker">MANUSCRIPT LIBRARY</p>
+          <h2>Manuscripts</h2>
         </div>
         <button type="button" className="text-button" onClick={() => setActive('manuscripts')}>View all <ArrowUpRight size={15} /></button>
       </section>
@@ -669,8 +795,15 @@ function AnalysisPage({ document, setActive, citationReport, report }) {
           <h1>Document analysis<span className="period">.</span></h1>
           <p className="subtitle">Extracted manuscript structure and metadata.</p>
         </div>
-        <button type="button" className="primary-button" onClick={() => setActive('citations')}>Check citations <ArrowUpRight size={16} /></button>
+        <p className="supporting-text">
+          After upload, the system parses the structure, checks citation consistency, and runs quality,
+          similarity, methodology, writing, and journal-fit assessments.
+          {hasDocument ? ' Uploading a new file starts a new manuscript record.' : ''}
+        </p>
       </section>
+    </>
+  )
+}
 
       <section className="analysis-hero">
         <div className="analysis-score">
@@ -690,49 +823,40 @@ function AnalysisPage({ document, setActive, citationReport, report }) {
         </div>
       </section>
 
-      <section className="stats-grid compact-grid">
-        <Stat label="Sections" value={counts.sections} detail="manuscript headings" icon={FileText} />
-        <Stat label="Figures" value={counts.figures} detail="visual elements" icon={BarChart3} />
-        <Stat label="Tables" value={counts.tables} detail="data panels" icon={BookOpen} />
-        <Stat label="Equations" value={counts.equations} detail="math objects" icon={Gauge} />
-        <Stat label="Citations" value={counts.citations} detail="in-text references" icon={Sparkles} />
-        <Stat label="References" value={counts.references} detail="bibliography entries" icon={ShieldCheck} />
+      <section className="stats-grid compact-grid" aria-label="Detected element counts">
+        <StatCard label="Sections" value={counts.sections} detail="manuscript headings" icon={FileText} />
+        <StatCard label="Figures" value={counts.figures} detail="visual elements" icon={BarChart3} />
+        <StatCard label="Tables" value={counts.tables} detail="data panels" icon={BookOpen} />
+        <StatCard label="Equations" value={counts.equations} detail="math objects" icon={Gauge} />
+        <StatCard label="Citations" value={counts.citations} detail="in-text references" icon={Sparkles} />
+        <StatCard label="References" value={counts.references} detail="bibliography entries" icon={ShieldCheck} />
       </section>
 
       <div className="detail-grid two-col">
         <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="kicker">SECTION MAP</p>
-              <h2>Detected structure</h2>
-            </div>
-          </div>
-          <div className="finding-list">
-            {(document.sections || []).map((section) => (
-              <div className="finding" key={`${section.heading}-${section.type}`}>
+          <p className="kicker">DOCUMENT COMPLETENESS</p>
+          <h2>{passed} of {checks.length} checks</h2>
+          <p className="supporting-text">Counts how many expected manuscript elements the parser detected. It does not measure scientific quality.</p>
+          <ul className="check-list">
+            {checks.map((check) => (
+              <li key={check.label} className={check.ok ? 'ok' : 'missing'}>
+                <span aria-hidden="true">{check.ok ? <Check size={14} /> : <AlertTriangle size={14} />}</span>
+                {check.label}
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section className="panel">
+          <p className="kicker">SECTION MAP</p>
+          <h2>Detected structure</h2>
+          <div className="finding-list scrollable">
+            {(analysis.sections || []).length === 0 && <p className="muted">No sections detected.</p>}
+            {(analysis.sections || []).map((section, index) => (
+              <div className="finding" key={`${section.heading}-${index}`}>
                 <span className="finding-mark good"><Check size={14} /></span>
-                <div>
-                  <strong>{section.heading}</strong>
-                  <span>{section.type}</span>
-                </div>
-                <ChevronRight size={16} />
+                <div><strong>{section.heading || 'Untitled section'}</strong><span>{section.type || 'unknown'}</span></div>
               </div>
             ))}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-heading">
-            <div>
-              <p className="kicker">KEY METADATA</p>
-              <h2>Document snapshot</h2>
-            </div>
-          </div>
-          <div className="info-list">
-            <p><strong>Title:</strong> {document.title}</p>
-            <p><strong>Authors:</strong> {(document.authors || []).join(', ') || 'Not detected'}</p>
-            <p><strong>Abstract:</strong> {document.abstract || 'No abstract detected.'}</p>
-            <p><strong>Keywords:</strong> {(document.keywords || []).join(', ') || 'No keywords detected.'}</p>
           </div>
         </section>
       </div>
@@ -747,22 +871,23 @@ function CitationPage({ citationReport, document, setActive }) {
   ))
   return (
     <>
-      <section className="page-intro">
-        <div>
-          <p className="kicker">REFERENCE INTEGRITY</p>
-          <h1>Citation check<span className="period">.</span></h1>
-          <p className="subtitle">Inspect unresolved, duplicated, or uncited references before submission.</p>
-        </div>
-        <button type="button" className="primary-button" onClick={() => setActive('journal')}>Match journal <ArrowUpRight size={16} /></button>
+      <PageHeader
+        kicker="REFERENCE INTEGRITY"
+        title="Citation check"
+        subtitle="This checks consistency between detected in-text citations and the detected reference list. It is not a guarantee that every citation is scientifically appropriate."
+        action={<span className="button-row">
+          <button type="button" className="outline-button" onClick={onRecheck} disabled={busy}>{busy ? 'Rechecking...' : 'Recheck'}</button>
+          <button type="button" className="primary-button" onClick={onNext}>Journal fit <ArrowRight size={16} /></button>
+        </span>}
+      />
+      {busy && <LoadingRow label="Rechecking citations..." />}
+      <ErrorBox message={error} onRetry={onRecheck} />
+      <section className="stats-grid compact-grid" aria-label="Citation statistics">
+        <StatCard label="In-text citations" value={citationReport?.total_citations ?? '—'} detail="detected" icon={BookOpen} />
+        <StatCard label="References" value={citationReport?.total_references ?? '—'} detail="bibliography entries" icon={FileText} />
+        <StatCard label="Missing refs" value={(citationReport?.missing_references || []).length} detail="cited but not listed" icon={AlertTriangle} />
+        <StatCard label="Uncited refs" value={(citationReport?.uncited_references || []).length} detail="listed but never cited" icon={Sparkles} />
       </section>
-
-      <section className="stats-grid compact-grid">
-        <Stat label="Total citations" value={citationReport.total_citations || 0} detail="in-text references" icon={BookOpen} />
-        <Stat label="Total references" value={citationReport.total_references || 0} detail="bibliography entries" icon={FileText} />
-        <Stat label="Missing refs" value={citationReport.missing_references?.length || 0} detail="needs review" icon={ShieldCheck} />
-        <Stat label="Uncited refs" value={citationReport.uncited_references?.length || 0} detail="unused entries" icon={Sparkles} />
-      </section>
-
       <div className="detail-grid two-col">
         <section className="panel">
           <div className="panel-heading">
@@ -798,11 +923,25 @@ function CitationPage({ citationReport, document, setActive }) {
                   <span className="finding-mark good"><Check size={14} /></span>
                   <div><strong>[{ref.id}]</strong><span>{ref.raw_text}</span></div>
                 </div>
-              ))
-            )}
+              ))}
+            </div>
+          )}
+        </section>
+        <section className="panel">
+          <p className="kicker">BIBLIOGRAPHY</p>
+          <h2>Detected references ({(analysis.references || []).length})</h2>
+          <div className="finding-list scrollable">
+            {(analysis.references || []).length === 0 && <p className="muted">No references detected.</p>}
+            {(analysis.references || []).map((ref, index) => (
+              <div className="finding" key={ref.id || index}>
+                <span className="finding-mark neutral">{ref.id || index + 1}</span>
+                <div><strong>{ref.id ? `[${ref.id}]` : `#${index + 1}`}</strong><span>{ref.raw_text || ref.text || 'Empty entry'}</span></div>
+              </div>
+            ))}
           </div>
         </section>
       </div>
+      <p className="supporting-text">Document: {documentId}. No plagiarism detection is performed.</p>
     </>
   )
 }
@@ -828,7 +967,6 @@ function JournalPage({ document, selectedJournalId, setSelectedJournalId, journa
       setMatchError(error.message || 'Journal matching could not be completed.')
     }
   }
-
   return (
     <>
       <section className="page-intro">
@@ -841,11 +979,10 @@ function JournalPage({ document, selectedJournalId, setSelectedJournalId, journa
       </section>
 
       <section className="panel">
-        <div className="panel-heading">
-          <div><p className="kicker">JOURNAL MATCH</p><h2>Selected journal</h2></div>
-        </div>
+        <p className="kicker">SELECTED JOURNAL</p>
         <div className="journal-select-row">
-          <select value={selectedJournalId} onChange={handleSelect}>
+          <label className="visually-hidden" htmlFor="journal-select">Select journal</label>
+          <select id="journal-select" value={selectedJournalId} onChange={(event) => onSelect(event.target.value)} disabled={busy}>
             {journalList.map((journal) => (
               <option key={journal.journal_id} value={journal.journal_id}>{journal.journal_name}</option>
             ))}
@@ -868,6 +1005,20 @@ function JournalPage({ document, selectedJournalId, setSelectedJournalId, journa
           </div>
         </div>
       </section>
+      {selectedJournal && (
+        <section className="panel">
+          <p className="kicker">FORMATTING RULES</p>
+          <h2>{selectedJournal.template_name || selectedJournal.journal_name}</h2>
+          <div className="info-list">
+            <p><strong>Publisher/style:</strong> {selectedJournal.publisher || '—'} · {selectedJournal.style || '—'}</p>
+            <p><strong>Layout:</strong> {selectedJournal.page_size || '—'} · {(selectedJournal.columns || '—')}-column</p>
+            <p><strong>Font:</strong> {selectedJournal.font || '—'} {selectedJournal.font_size ? `${selectedJournal.font_size}pt body` : ''}</p>
+            <p><strong>Citations/references:</strong> {selectedJournal.citation_style || '—'} / {selectedJournal.reference_style || '—'}</p>
+          </div>
+          <p className="supporting-text">Journal rules are based on the application's configured template data. Always verify the latest official author guidelines before submission.</p>
+        </section>
+      )}
+      <p className="supporting-text">Document: {documentId}. The selected journal is stored with the manuscript on formatting.</p>
     </>
   )
 }
@@ -886,29 +1037,55 @@ function QualityPage({ qualityAnalysis, completenessAnalysis, setActive }) {
   if (!qualityAnalysis?.document_id) return <AnalysisRequired setActive={setActive} />
   return (
     <>
-      <section className="page-intro">
-        <div>
-          <p className="kicker">RESEARCH INTELLIGENCE</p>
-          <h1>Research quality analysis<span className="period">.</span></h1>
-          <p className="subtitle">A structured assessment of completeness, evidence, writing quality, and risk.</p>
-        </div>
-        <button type="button" className="primary-button" onClick={() => setActive('novelty')}>Explore novelty <ArrowUpRight size={16} /></button>
-      </section>
+      <PageHeader
+        kicker={kicker}
+        title={title}
+        subtitle={subtitle}
+        action={<span className="button-row">
+          <button type="button" className="outline-button" onClick={onRun} disabled={busy}>{busy ? 'Running...' : data ? 'Re-run assessment' : 'Run assessment'}</button>
+          <button type="button" className="primary-button" onClick={onNext}>{nextLabel} <ArrowRight size={16} /></button>
+        </span>}
+      />
+      {busy && <LoadingRow label="Running assessment..." />}
+      <ErrorBox message={error} onRetry={onRun} />
+      {!data && !busy && !error && <p className="muted">{emptyHint}</p>}
+      {data && children}
+    </>
+  )
+}
+
+function QualityPage({ data, contribution, busy, error, hasDocument, onRun, onGoUpload, onNext }) {
+  return (
+    <AssessmentShell
+      kicker="RESEARCH QUALITY REVIEW" title="Quality" subtitle="Assessment findings on completeness, contribution, and writing. Review these findings with your supervisor/co-author."
+      data={data} busy={busy} error={error} hasDocument={hasDocument} onRun={onRun} onGoUpload={onGoUpload} onNext={onNext} nextLabel="Novelty & similarity"
+      emptyHint="No quality assessment has been run for this manuscript in this session."
+    >
       <div className="detail-grid two-col">
         <section className="panel">
-          <div className="panel-heading"><div><p className="kicker">QUALITY</p><h2>Findings</h2></div></div>
+          <p className="kicker">FINDINGS</p>
+          <h2>Assessment</h2>
           <div className="finding-list">
-            <div className="finding"><span className="finding-mark good"><Check size={14} /></span><div><strong>Research gap</strong><span>{qualityAnalysis.research_gap}</span></div></div>
-            <div className="finding"><span className="finding-mark good"><Check size={14} /></span><div><strong>Technical contribution</strong><span>{qualityAnalysis.technical_contribution}</span></div></div>
-            <div className="finding"><span className="finding-mark warning">!</span><div><strong>Methodology issues</strong><span>{(qualityAnalysis.methodology_issues || []).join(' ')}</span></div></div>
-            <div className="finding"><span className="finding-mark neutral">•</span><div><strong>Missing sections</strong><span>{(qualityAnalysis.missing_sections || []).join(', ') || 'None detected'}</span></div></div>
+            <div className="finding"><span className="finding-mark good"><Check size={14} /></span><div><strong>Research gap</strong><span>{data.research_gap}</span></div></div>
+            <div className="finding"><span className="finding-mark good"><Check size={14} /></span><div><strong>Technical contribution</strong><span>{data.technical_contribution}</span></div></div>
+            <div className="finding"><span className="finding-mark warning">!</span><div><strong>Methodology issues</strong><span>{(data.methodology_issues || []).join(' ') || 'None flagged'}</span></div></div>
+            <div className="finding"><span className="finding-mark neutral">•</span><div><strong>Missing sections</strong><span>{(data.missing_sections || []).join(', ') || 'None detected'}</span></div></div>
+            <div className="finding"><span className="finding-mark neutral">•</span><div><strong>Writing issues</strong><span>{(data.writing_issues || []).join(' ') || 'None flagged'}</span></div></div>
           </div>
         </section>
         <section className="panel">
-          <div className="panel-heading"><div><p className="kicker">ACTIONS</p><h2>Suggestions</h2></div></div>
+          <p className="kicker">ACTIONS</p>
+          <h2>Suggestions</h2>
           <ul className="mini-list">
-            {(qualityAnalysis.suggestions || []).map((suggestion) => <li key={suggestion}>{suggestion}</li>)}
+            {(data.suggestions || []).map((suggestion) => <li key={suggestion}>{suggestion}</li>)}
           </ul>
+          {contribution && (
+            <>
+              <p className="kicker">CONTRIBUTION SUMMARY</p>
+              <p className="supporting-text"><strong>Problem:</strong> {contribution.problem}</p>
+              <p className="supporting-text"><strong>Contribution:</strong> {contribution.contribution}</p>
+            </>
+          )}
         </section>
         {completenessAnalysis?.document_id && (
           <section className="panel">
@@ -980,7 +1157,7 @@ function QualityPage({ qualityAnalysis, completenessAnalysis, setActive }) {
           </section>
         )}
       </div>
-    </>
+    </AssessmentShell>
   )
 }
 
@@ -1008,41 +1185,42 @@ function NoveltyPage({ noveltyAnalysis, setActive }) {
           <ul className="mini-list">
             {(noveltyAnalysis.improvement_suggestions || []).map((item) => <li key={item}>{item}</li>)}
           </ul>
+          <p className="supporting-text">Similarity is evidence for review, not a verdict. No plagiarism detection or originality certification is provided.</p>
         </section>
       </div>
-    </>
+    </AssessmentShell>
   )
 }
 
 function MethodologyPage({ methodologyAnalysis, setActive }) {
   if (!methodologyAnalysis?.document_id) return <AnalysisRequired setActive={setActive} />
   return (
-    <>
-      <section className="page-intro">
-        <div>
-          <p className="kicker">REPRODUCIBILITY</p>
-          <h1>Methodology review<span className="period">.</span></h1>
-          <p className="subtitle">Assess whether the manuscript provides enough technical detail to be trusted and repeated.</p>
-        </div>
-        <button type="button" className="primary-button" onClick={() => setActive('improvements')}>See improvements <ArrowUpRight size={16} /></button>
-      </section>
+    <AssessmentShell
+      kicker="REPRODUCIBILITY" title="Methodology"
+      subtitle="Whether the manuscript reports enough technical detail to be trusted and repeated. Completeness is assessed, not scientific validity."
+      data={data} busy={busy} error={error} hasDocument={hasDocument} onRun={onRun} onGoUpload={onGoUpload} onNext={onNext} nextLabel="Improvements"
+      emptyHint="No methodology assessment has been run for this manuscript in this session."
+    >
       <div className="detail-grid two-col">
         <section className="panel">
-          <div className="panel-heading"><div><p className="kicker">DETECTED</p><h2>Method details present</h2></div></div>
+          <p className="kicker">DETECTED</p>
+          <h2>Method details present</h2>
           <ul className="mini-list">
-            {(methodologyAnalysis.detected_information || []).map((item) => <li key={item}>{item}</li>)}
+            {(data.detected_information || []).map((item) => <li key={item}>{item}</li>)}
           </ul>
+          {(data.strengths || []).map((item) => <p className="supporting-text" key={item}>{item}</p>)}
         </section>
         <section className="panel">
-          <div className="panel-heading"><div><p className="kicker">GAPS</p><h2>Missing / weak</h2></div></div>
-          <p className="supporting-text">{methodologyAnalysis.potential_weakness}</p>
+          <p className="kicker">GAPS</p>
+          <h2>Missing / weak</h2>
+          <p className="supporting-text">{data.potential_weakness}</p>
           <ul className="mini-list">
-            {(methodologyAnalysis.missing_information || []).map((item) => <li key={item}>{item}</li>)}
+            {(data.missing_information || []).map((item) => <li key={item}>{item}</li>)}
           </ul>
-          <p className="supporting-text"><strong>Action:</strong> {methodologyAnalysis.actionable_suggestion}</p>
+          <p className="supporting-text"><strong>Suggested action:</strong> {data.actionable_suggestion}</p>
         </section>
       </div>
-    </>
+    </AssessmentShell>
   )
 }
 
@@ -1169,18 +1347,8 @@ function ImprovementsPage({ improvements, setActive }) {
             <div className="improvement-header">
               <span>{item.section}</span>
             </div>
-            <div className="comparison-grid">
-              <div>
-                <label>Original</label>
-                <p>{item.original}</p>
-              </div>
-              <div>
-                <label>Suggested improvement</label>
-                <p>{item.suggested}</p>
-              </div>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </>
   )
@@ -1207,16 +1375,18 @@ function ReportPage({ report, setActive }) {
                 <span className="finding-mark good"><Check size={14} /></span>
                 <div><strong>{section.name}</strong><span>{section.details}</span></div>
               </div>
-            ))}
+            </section>
+            <section className="panel">
+              <p className="kicker">FINAL CHECKLIST</p>
+              <h2>Before submission</h2>
+              <ul className="mini-list">
+                {(report.final_checklist || []).map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </section>
           </div>
-        </section>
-        <section className="panel report-panel">
-          <div className="panel-heading"><div><p className="kicker">CHECKLIST</p><h2>Final checklist</h2></div></div>
-          <ul className="mini-list">
-            {(report.final_checklist || []).map((item) => <li key={item}>{item}</li>)}
-          </ul>
-        </section>
-      </div>
+          <p className="supporting-text">This report is an advisory assessment. It does not guarantee publication, acceptance, scientific correctness, originality, or compliance with the latest official journal instructions.</p>
+        </>
+      )}
     </>
   )
 }
@@ -1241,9 +1411,7 @@ function ExportPage({ document, selectedJournal, selectedJournalId, setActive })
       setExportStatus('ready')
       setExportMessage(`Submission package is ready. ${generated.pdf_rendering?.message || ''}`)
     } catch (error) {
-      setExportStatus('error')
-      setExportError(error.message || 'Export failed.')
-      setExportMessage('Export could not be completed.')
+      setExportState({ phase: 'error', message: 'Submission package generation failed. Review the error and retry.', error: error.message || 'Export failed.' })
     }
   }
 
@@ -1270,10 +1438,20 @@ function ExportPage({ document, selectedJournal, selectedJournalId, setActive })
         URL.revokeObjectURL(url)
       }, 1500)
     } catch (error) {
-      setExportError(error.message || `Could not download ${format.toUpperCase()}.`)
+      setExportState((prev) => ({ ...prev, error: error.message || `Could not download ${format.toUpperCase()}.` }))
     }
   }
 
+  if (!analysis) {
+    return (
+      <>
+        <PageHeader kicker="SUBMISSION PREPARATION" title="Export" subtitle="Journal-formatted outputs and the submission package." />
+        <EmptyState title="No manuscript uploaded" body="Upload a DOCX manuscript to begin." action={<button type="button" className="primary-button" onClick={onGoUpload}>Go to upload</button>} />
+      </>
+    )
+  }
+
+  const ready = phase === 'ready'
   return (
     <>
       <section className="page-intro">
@@ -1298,44 +1476,58 @@ function ExportPage({ document, selectedJournal, selectedJournalId, setActive })
           </div>
         )}
         <div className="button-row export-buttons">
-          <button type="button" className="primary-button" onClick={runExport} disabled={exportStatus === 'working'}>
-            {exportStatus === 'ready' ? 'Regenerate package' : 'Generate submission package'}
+          <button type="button" className="primary-button" onClick={runExport} disabled={phase === 'working'}>
+            {phase === 'working' ? 'Generating...' : ready ? 'Regenerate package' : 'Generate submission package'}
           </button>
-          <button type="button" className="outline-button" onClick={() => downloadFile('docx')} disabled={exportStatus !== 'ready'}>Download DOCX</button>
-          <button type="button" className="outline-button" onClick={() => downloadFile('pdf')} disabled={exportStatus !== 'ready'}>Download PDF</button>
-          <button type="button" className="outline-button" onClick={() => downloadFile('report')} disabled={exportStatus !== 'ready'}>Readiness report</button>
-          <button type="button" className="outline-button" onClick={() => downloadFile('zip')} disabled={exportStatus !== 'ready'}>Submission ZIP</button>
+          <button type="button" className="outline-button" onClick={() => downloadFile('docx')} disabled={!ready}>Download DOCX</button>
+          <button type="button" className="outline-button" onClick={() => downloadFile('pdf')} disabled={!ready}>Download PDF</button>
+          <button type="button" className="outline-button" onClick={() => downloadFile('report')} disabled={!ready}>Readiness report</button>
+          <button type="button" className="outline-button" onClick={() => downloadFile('zip')} disabled={!ready}>Submission ZIP</button>
         </div>
       </section>
     </>
   )
 }
 
-function ModuleCard({ title, eyebrow, text, value, unit, tone, icon: Icon, onClick }) {
+function SettingsPage({ theme, setTheme, journalList, selectedJournalId, onDefaultJournal, aiStatus, backendOk }) {
   return (
-    <button type="button" className={`module-card ${tone}`} onClick={onClick}>
-      <div className="module-top">
-        <span className="module-icon"><Icon size={18} /></span>
-        <ArrowUpRight size={16} />
-      </div>
-      <p className="eyebrow">{eyebrow}</p>
-      <h3>{title}</h3>
-      <p>{text}</p>
-      <div className="module-value"><strong>{value}</strong><span>{unit}</span></div>
-    </button>
-  )
-}
-
-function Stat({ label, value, suffix = '', detail, icon: Icon, green = false }) {
-  return (
-    <div className="stat-card">
-      <div className="stat-icon"><Icon size={17} /></div>
-      <div>
-        <span className="stat-label">{label}</span>
-        <div className="stat-number">{value}<small>{suffix}</small></div>
-        <span className={green ? 'stat-detail green-text' : 'stat-detail'}>{detail}</span>
-      </div>
-    </div>
+    <>
+      <PageHeader kicker="APPLICATION" title="Settings" subtitle="Workspace preferences and service information." />
+      <section className="panel">
+        <p className="kicker">APPEARANCE</p>
+        <h2>Theme</h2>
+        <div className="button-row" role="group" aria-label="Theme selection">
+          <button type="button" className={theme === 'light' ? 'outline-button active' : 'outline-button'} onClick={() => setTheme('light')}>Light</button>
+          <button type="button" className={theme === 'light' ? 'outline-button' : 'outline-button active'} onClick={() => setTheme('dark')}>Dark</button>
+        </div>
+        <p className="supporting-text">The theme is stored in this browser only.</p>
+      </section>
+      <section className="panel">
+        <p className="kicker">DEFAULTS</p>
+        <h2>Default journal</h2>
+        <label className="visually-hidden" htmlFor="default-journal">Default journal</label>
+        <select id="default-journal" value={selectedJournalId} onChange={(event) => onDefaultJournal(event.target.value)}>
+          {journalList.map((journal) => (
+            <option key={journal.journal_id} value={journal.journal_id}>{journal.journal_name}</option>
+          ))}
+        </select>
+        <p className="supporting-text">Used for new uploads. Each manuscript stores its own selected journal on formatting.</p>
+      </section>
+      <section className="panel">
+        <p className="kicker">SERVICES</p>
+        <h2>Service status</h2>
+        <div className="info-list">
+          <p><strong>Backend:</strong> {backendOk === true ? 'Connected' : backendOk === false ? 'Unavailable — check that the API server is running.' : 'Checking...'}</p>
+          <p><strong>Analysis mode:</strong> {aiStatus ? aiStatus.label : 'Unknown'}</p>
+          <p className="supporting-text">{aiStatus ? aiStatus.note : 'Manuscript processing stays within the application/server unless an external provider is configured.'}</p>
+        </div>
+      </section>
+      <section className="panel">
+        <p className="kicker">ABOUT</p>
+        <h2>PaperPilot</h2>
+        <p className="supporting-text">Research manuscript preparation and pre-submission review. This tool provides advisory assessments and formatting preparation; it does not guarantee publication, verify scientific truth, detect plagiarism, or certify originality. The author remains responsible for scientific correctness, citations, originality, ethics, and final compliance with the selected journal's official instructions.</p>
+      </section>
+    </>
   )
 }
 

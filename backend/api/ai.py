@@ -23,6 +23,21 @@ from backend.security import get_current_user, get_owned_document
 router = APIRouter(prefix="/api", dependencies=[Depends(get_current_user)])
 
 
+@router.get("/ai/status")
+async def ai_status():
+    """Report which analysis mode the server uses. Never exposes API keys."""
+    return {
+        "mode": AI_MODE,
+        "local": AI_MODE == "local",
+        "label": "Local heuristic assessment" if AI_MODE == "local" else f"External provider ({AI_MODE})",
+        "note": (
+            "Manuscript processing stays within the application/server."
+            if AI_MODE == "local"
+            else "Selected manuscript information may be sent to the configured third-party AI provider."
+        ),
+    }
+
+
 class AnalysisPayload(BaseModel):
     document_id: str
     analysis: dict | None = None

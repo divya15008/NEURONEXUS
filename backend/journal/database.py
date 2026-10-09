@@ -1,3 +1,12 @@
+"""Journal library built from Research_Paper_Journal_Template_Training_Pack/template_specs.json.
+
+Every entry mirrors one training template (page size, columns, fonts, heading,
+abstract, citation/reference, figure/table/equation conventions) plus the runtime
+fields the formatter/generator need (margins, line spacing, scope topics, etc.).
+
+Legacy ids ``nature`` and ``ieee`` are kept as aliases so existing clients and
+tests keep working: ``nature`` -> NATURE_LIKE style, ``ieee`` -> IEEE conference style.
+"""
 import json
 from copy import deepcopy
 from functools import lru_cache

@@ -1,4 +1,24 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+:root {
+  --font-ui: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-soft: #f8f9fb;
+  --line: #dde1e7;
+  --text: #1f2733;
+  --muted: #5b6675;
+  --faint: #8a94a3;
+  --accent: #1f5fa8;
+  --accent-dark: #174a84;
+  --accent-soft: #e8f0f9;
+  --good: #1e7a3c;
+  --good-soft: #e6f3ea;
+  --warn: #9a5b00;
+  --warn-soft: #fdf1de;
+  --bad: #b3261e;
+  --bad-soft: #fbeae9;
+  --radius: 8px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
 
 :root { font-family: 'DM Sans', sans-serif; color: #24272d; background: #f7f8fa; font-synthesis: none; --bg: #f7f8fa; --surface: #fff; --surface-soft: #f1f3f5; --text: #24272d; --muted: #727980; --faint: #a2a9b0; --line: #e2e6e8; --accent: #d76246; --accent-dark: #b74d35; --green: #2c9670; --green-soft: #e3f3ec; --lavender: #eae7f7; --mint: #e0f1ec; --peach: #f8e7df; --shadow: 0 12px 34px rgba(34, 42, 48, .06); }
 :root[data-theme='dark'] { --bg: #171a1c; --surface: #222628; --surface-soft: #292e30; --text: #f2f3f1; --muted: #abb3b2; --faint: #7c8786; --line: #3a4344; --accent: #e57658; --accent-dark: #f18a6e; --green: #66c19d; --green-soft: #1f4438; --lavender: #38354d; --mint: #25433c; --peach: #4a342f; --shadow: 0 12px 34px rgba(0, 0, 0, .22); }

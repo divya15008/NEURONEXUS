@@ -10,6 +10,17 @@ class FormattingResult(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+def _word_count(document: dict) -> int:
+    words = len(str(document.get("title") or "").split())
+    words += len(str(document.get("abstract") or "").split())
+    for section in document.get("sections") or []:
+        if isinstance(section, dict):
+            words += len(str(section.get("content") or "").split())
+    for para in document.get("paragraphs") or []:
+        words += len(str(para).split())
+    return words
+
+
 def apply_formatting(document: dict, journal_rules: dict) -> FormattingResult:
     warnings = []
     figures = document.get("figures") or []

@@ -15,7 +15,7 @@ From the repository root, install backend dependencies and start the API:
 
 ```powershell
 python -m pip install -r backend\requirements.txt
-python -m uvicorn backend.main:app --reload --port 8000
+python -m uvicorn backend.main:app --port 8000
 ```
 
 In a second terminal:
