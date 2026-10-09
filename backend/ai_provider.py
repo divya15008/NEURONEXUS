@@ -29,9 +29,17 @@ class LocalMockProvider:
 class OpenAIProvider:
     name = "openai"
 
-    def __init__(self, api_key: str, model: str):
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        endpoint: str = "https://api.openai.com/v1/chat/completions",
+        name: str = "openai",
+    ):
         self.api_key = api_key
         self.model = model
+        self.endpoint = endpoint
+        self.name = name
 
     def generate_json(self, module: str, manuscript: dict, fields: list[str]) -> dict[str, Any]:
         payload = {
@@ -43,7 +51,7 @@ class OpenAIProvider:
             "response_format": {"type": "json_object"},
         }
         response = _post_json(
-            "https://api.openai.com/v1/chat/completions",
+            self.endpoint,
             payload,
             {"Authorization": f"Bearer {self.api_key}"},
         )
@@ -101,7 +109,25 @@ def _parse_model_json(value: str) -> dict[str, Any]:
 
 
 def get_ai_provider() -> AIProvider:
-    provider = os.getenv("PAPERPILOT_AI_PROVIDER", "").strip().lower()
+    provider = (
+        os.getenv("PAPERPILOT_AI_PROVIDER")
+        or os.getenv("NEURONEXUS_AI_MODE")
+        or ""
+    ).strip().lower()
+    if provider == "groq" and os.getenv("GROQ_API_KEY"):
+        return OpenAIProvider(
+            os.environ["GROQ_API_KEY"],
+            os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"),
+            "https://api.groq.com/openai/v1/chat/completions",
+            "groq",
+        )
+    if provider == "grok" and (os.getenv("GROK_API_KEY") or os.getenv("XAI_API_KEY")):
+        return OpenAIProvider(
+            os.getenv("GROK_API_KEY") or os.environ["XAI_API_KEY"],
+            os.getenv("GROK_MODEL", "grok-3-mini"),
+            "https://api.x.ai/v1/chat/completions",
+            "grok",
+        )
     if provider == "openai" and os.getenv("OPENAI_API_KEY"):
         return OpenAIProvider(os.environ["OPENAI_API_KEY"], os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
     if provider == "gemini" and os.getenv("GEMINI_API_KEY"):

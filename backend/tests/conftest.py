@@ -1,5 +1,9 @@
 import tempfile
+import os
 from pathlib import Path
+
+os.environ["NEURONEXUS_AI_MODE"] = "local"
+os.environ["PAPERPILOT_AI_PROVIDER"] = "local"
 
 from backend import config
 

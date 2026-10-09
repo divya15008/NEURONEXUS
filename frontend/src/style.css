@@ -52,6 +52,11 @@
 .mini-list { margin: 16px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.6; }
 .improvement-list { display: grid; gap: 16px; }
 .improvement-header { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 14px; }
+.decision-status { color: var(--muted); font-size: 11px; text-transform: capitalize; }
+.decision-edit-label { display: block; margin-top: 18px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.decision-edit { display: block; width: 100%; min-height: 78px; margin-top: 7px; padding: 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; resize: vertical; }
+.decision-actions { margin-top: 12px; }
+.decision-actions button { min-height: 36px; }
 .button-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { border-radius: 999px; padding: 6px 10px; font-size: 11px; font-weight: 700; background: var(--surface-soft); }
 .chip.accept { background: var(--green-soft); color: var(--green); }

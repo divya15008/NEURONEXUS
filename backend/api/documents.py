@@ -80,7 +80,8 @@ async def upload_document(file: UploadFile = File(...), user: dict = Depends(get
 @router.get("")
 async def list_documents(user: dict = Depends(get_current_user)):
     rows = fetch_all(
-        "SELECT id, filename, status, analysis_json, created_at, updated_at "
+        "SELECT id, filename, status, analysis_json, created_at, updated_at, "
+        "EXISTS(SELECT 1 FROM generated_documents WHERE generated_documents.document_id = documents.id) AS has_generated "
         "FROM documents WHERE user_id = ? ORDER BY updated_at DESC, id",
         (user["id"],),
     )
@@ -93,6 +94,8 @@ async def list_documents(user: dict = Depends(get_current_user)):
                 "filename": row["filename"],
                 "title": analysis.get("title") if analysis else row["filename"],
                 "status": row["status"],
+                "has_analysis": analysis is not None,
+                "has_generated": bool(row["has_generated"]),
                 "created_at": row["created_at"],
                 "updated_at": row["updated_at"],
             }

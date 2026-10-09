@@ -1,17 +1,42 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+from contextvars import ContextVar
 from functools import wraps
 from inspect import signature
+from pathlib import Path
 from typing import Any
+
+import httpx
+from dotenv import load_dotenv
 
 from backend.citation.validator import validate_citations
 from backend.journal.rules import get_available_journals, get_journal_rules
 
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
+AI_MODE = (
+    os.getenv("PAPERPILOT_AI_PROVIDER")
+    or os.getenv("NEURONEXUS_AI_MODE")
+    or "local"
+).strip().lower()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+GROK_API_KEY = os.getenv("GROK_API_KEY") or os.getenv("XAI_API_KEY", "")
+GROK_MODEL = os.getenv("GROK_MODEL", "grok-3-mini")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
 
 class AIProviderError(RuntimeError):
     pass
+
+
+_AI_ANALYSIS_DEPTH: ContextVar[int] = ContextVar("ai_analysis_depth", default=0)
 
 
 def _normalize_text(value: str | None) -> str:
@@ -185,8 +210,10 @@ def _run_ai_provider(
         api_key, model = GROK_API_KEY, GROK_MODEL
     elif AI_MODE == "gemini":
         api_key, model = GEMINI_API_KEY, GEMINI_MODEL
+    elif AI_MODE == "openai":
+        api_key, model = OPENAI_API_KEY, OPENAI_MODEL
     else:
-        raise AIProviderError("Unsupported AI mode. Set NEURONEXUS_AI_MODE to 'groq', 'grok', 'gemini', or 'local'.")
+        raise AIProviderError("Unsupported AI provider. Choose local, groq, grok, gemini, or openai.")
     if not api_key:
         raise AIProviderError(f"No API key is configured for the selected {AI_MODE} provider.")
 
@@ -201,17 +228,12 @@ def _run_ai_provider(
         f"Analysis module: {module}\n"
         f"Input data: {json.dumps(_model_context(analysis, extra), ensure_ascii=False)}"
     )
-    if AI_MODE == "groq":
-        endpoint = "https://api.groq.com/openai/v1/chat/completions"
-        headers = {"Authorization": f"Bearer {api_key}"}
-        request_body = {
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "response_format": {"type": "json_object"},
-            "temperature": 0.2,
-        }
-    elif AI_MODE == "grok":
-        endpoint = "https://api.x.ai/v1/chat/completions"
+    if AI_MODE in {"groq", "grok", "openai"}:
+        endpoint = {
+            "groq": "https://api.groq.com/openai/v1/chat/completions",
+            "grok": "https://api.x.ai/v1/chat/completions",
+            "openai": "https://api.openai.com/v1/chat/completions",
+        }[AI_MODE]
         headers = {"Authorization": f"Bearer {api_key}"}
         request_body = {
             "model": model,
@@ -240,8 +262,7 @@ def _run_ai_provider(
             timeout=45.0,
         )
     except httpx.HTTPError as exc:
-        # Network blip: degrade gracefully to local analysis.
-        return fallback
+        raise AIProviderError(f"{AI_MODE} could not be reached. Check connectivity and retry.") from exc
 
     if not response.is_success:
         if response.status_code in {401, 403}:
@@ -249,13 +270,13 @@ def _run_ai_provider(
                 variable = "GROQ_API_KEY"
             elif AI_MODE == "grok":
                 variable = "GROK_API_KEY (or XAI_API_KEY)"
+            elif AI_MODE == "openai":
+                variable = "OPENAI_API_KEY"
             else:
                 variable = "GEMINI_API_KEY"
             raise AIProviderError(f"{AI_MODE} rejected the API key. Check the local {variable} setting.")
         if response.status_code == 429 or 500 <= response.status_code < 600:
-            # Rate-limit / transient provider outage: fall back to deterministic local
-            # analysis so the submission flow never breaks during demos.
-            return fallback
+            raise AIProviderError(f"{AI_MODE} is temporarily unavailable (HTTP {response.status_code}).")
         raise AIProviderError(f"{AI_MODE} request failed with HTTP {response.status_code}.")
     try:
         response_body = response.json()
@@ -305,7 +326,14 @@ def _ai_assisted(module: str):
         @wraps(function)
         def wrapped(*args, **kwargs):
             bound = signature(function).bind_partial(*args, **kwargs)
-            fallback = function(*args, **kwargs)
+            depth = _AI_ANALYSIS_DEPTH.get()
+            token = _AI_ANALYSIS_DEPTH.set(depth + 1)
+            try:
+                fallback = function(*args, **kwargs)
+            finally:
+                _AI_ANALYSIS_DEPTH.reset(token)
+            if depth:
+                return fallback
             document_id = bound.arguments["document_id"]
             analysis = bound.arguments.get("analysis")
             extra = {
@@ -393,6 +421,7 @@ def _match_score_for_topics(manuscript_text: str, journal: dict | None) -> tuple
     return score, matched_topics[:5], gaps
 
 
+@_ai_assisted("quality")
 def analyze_quality(document_id: str, analysis: dict | None = None, journal_id: str | None = None) -> dict:
     document = analysis or {}
     paragraphs = document.get("paragraphs") or [""]

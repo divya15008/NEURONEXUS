@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from uuid import uuid4
 
 from docx import Document
 from fastapi.testclient import TestClient
@@ -10,6 +11,16 @@ from backend.main import app
 
 client = TestClient(app)
 DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+account = client.post(
+    "/api/auth/register",
+    json={
+        "name": "API coverage",
+        "email": f"api-coverage-{uuid4()}@example.test",
+        "password": "correct-horse-battery",
+    },
+)
+assert account.status_code == 200, account.text
+client.headers.update({"Authorization": f"Bearer {account.json()['access_token']}"})
 
 
 def make_docx(path: Path, paragraphs: int = 3) -> None:
@@ -42,7 +53,7 @@ def test_health():
 
 def test_ai_status_has_no_secrets():
     body = client.get("/api/ai/status").json()
-    assert body["mode"] in {"local", "groq", "grok", "gemini"}
+    assert body["mode"] in {"local", "groq", "grok", "gemini", "openai"}
     assert "key" not in body and "KEY" not in str(body)
 
 
@@ -154,6 +165,28 @@ def test_decision_rejects_invalid_choice(tmp_path):
     assert client.get("/api/improvements/decisions/DOC-NOPE").status_code == 404
 
 
+def test_decisions_are_private_to_the_document_owner(tmp_path):
+    doc_id = upload_sample(tmp_path, "private-decisions.docx")
+    other_client = TestClient(app)
+    other_account = other_client.post(
+        "/api/auth/register",
+        json={
+            "name": "Other researcher",
+            "email": f"other-{uuid4()}@example.test",
+            "password": "correct-horse-battery",
+        },
+    )
+    assert other_account.status_code == 200, other_account.text
+    other_client.headers.update({"Authorization": f"Bearer {other_account.json()['access_token']}"})
+
+    assert other_client.get(f"/api/improvements/decisions/{doc_id}").status_code == 404
+    response = other_client.post(
+        "/api/improvements/decisions",
+        json={"document_id": doc_id, "suggestion_id": "s1", "decision": "accepted"},
+    )
+    assert response.status_code == 404
+
+
 def test_format_rejects_unknown_journal(tmp_path):
     doc_id = upload_sample(tmp_path, "badjournal.docx")
     client.post(f"/api/documents/{doc_id}/analyze", json={})
@@ -175,8 +208,8 @@ def test_downloads_missing_before_generation(tmp_path):
 
 def test_full_generation_records_artifacts(tmp_path):
     doc_id = upload_sample(tmp_path, "fullgen.docx")
-    client.post(f"/api/documents/{doc_id}/analyze", json={"journal_id": "nature_like"})
-    generated = client.post(f"/api/documents/{doc_id}/generate", json={"journal_id": "nature_like"})
+    client.post(f"/api/documents/{doc_id}/analyze", json={"journal_id": "nature"})
+    generated = client.post(f"/api/documents/{doc_id}/generate", json={"journal_id": "nature"})
     assert generated.status_code == 200
     for kind in ["docx", "pdf", "report", "zip"]:
         response = client.get(f"/api/documents/{doc_id}/download/{kind}")

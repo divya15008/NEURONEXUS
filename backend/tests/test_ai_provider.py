@@ -1,12 +1,33 @@
 from __future__ import annotations
 
 import json as json_module
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend import ai_service
+from backend.database import connection
 from backend.main import app
+
+client = TestClient(app)
+account = client.post(
+    "/api/auth/register",
+    json={
+        "name": "AI provider test",
+        "email": f"ai-provider-{uuid4()}@example.test",
+        "password": "correct-horse-battery",
+    },
+)
+assert account.status_code == 200, account.text
+client.headers.update({"Authorization": f"Bearer {account.json()['access_token']}"})
+document_id = f"DOC-{uuid4().hex[:8].upper()}"
+with connection() as conn:
+    conn.execute(
+        "INSERT INTO documents (id, user_id, filename, original_path, status, analysis_json) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (document_id, account.json()["user"]["id"], "provider-test.docx", "", "analyzed", "{}"),
+    )
 
 
 class FakeResponse:
@@ -56,14 +77,25 @@ def test_groq_http_errors_do_not_disclose_api_key(monkeypatch):
     assert "test-secret" not in str(exc_info.value)
 
 
+def test_groq_transient_errors_are_reported(monkeypatch):
+    monkeypatch.setattr(ai_service, "AI_MODE", "groq")
+    monkeypatch.setattr(ai_service, "GROQ_API_KEY", "test-secret")
+    monkeypatch.setattr(ai_service.httpx, "post", lambda *args, **kwargs: FakeResponse(503, {}))
+
+    with pytest.raises(RuntimeError, match="temporarily unavailable") as exc_info:
+        ai_service.analyze_quality("DOC-TEST", {})
+
+    assert "test-secret" not in str(exc_info.value)
+
+
 def test_groq_authentication_error_is_returned_as_bad_gateway(monkeypatch):
     monkeypatch.setattr(ai_service, "AI_MODE", "groq")
     monkeypatch.setattr(ai_service, "GROQ_API_KEY", "test-secret")
     monkeypatch.setattr(ai_service.httpx, "post", lambda *args, **kwargs: FakeResponse(401, {}))
 
-    response = TestClient(app).post(
+    response = client.post(
         "/api/quality/analyze",
-        json={"document_id": "DOC-TEST", "analysis": {}},
+        json={"document_id": document_id, "analysis": {}},
     )
 
     assert response.status_code == 502

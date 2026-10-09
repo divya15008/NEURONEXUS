@@ -6,14 +6,13 @@ reflect review progress.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from backend.database import connection, fetch_one, init_db
+from backend.database import connection
+from backend.security import get_current_user, get_owned_document
 
-init_db()
-
-router = APIRouter(prefix="/api/improvements")
+router = APIRouter(prefix="/api/improvements", dependencies=[Depends(get_current_user)])
 
 VALID_DECISIONS = {"accepted", "rejected", "edited"}
 
@@ -26,15 +25,13 @@ class DecisionPayload(BaseModel):
 
 
 @router.post("/decisions")
-async def save_decision(payload: DecisionPayload):
+async def save_decision(payload: DecisionPayload, user: dict = Depends(get_current_user)):
     decision = (payload.decision or "").strip().lower()
     if decision not in VALID_DECISIONS:
         raise HTTPException(status_code=400, detail="Decision must be one of: accepted, rejected, edited.")
     if not payload.document_id or not payload.suggestion_id:
         raise HTTPException(status_code=400, detail="document_id and suggestion_id are required.")
-    exists = fetch_one("SELECT 1 FROM documents WHERE id = ?", (payload.document_id,))
-    if not exists:
-        raise HTTPException(status_code=404, detail="Document not found.")
+    get_owned_document(payload.document_id, user["id"])
     with connection() as conn:
         conn.execute(
             "INSERT INTO suggestion_decisions (document_id, suggestion_id, decision, edited_text, updated_at) "
@@ -52,10 +49,8 @@ async def save_decision(payload: DecisionPayload):
 
 
 @router.get("/decisions/{document_id}")
-async def get_decisions(document_id: str):
-    exists = fetch_one("SELECT 1 FROM documents WHERE id = ?", (document_id,))
-    if not exists:
-        raise HTTPException(status_code=404, detail="Document not found.")
+async def get_decisions(document_id: str, user: dict = Depends(get_current_user)):
+    get_owned_document(document_id, user["id"])
     with connection() as conn:
         rows = conn.execute(
             "SELECT suggestion_id, decision, edited_text, updated_at FROM suggestion_decisions "

@@ -20,6 +20,7 @@ The SQLite database is initialized on startup. API documentation is available at
 - `/api/citations` — citation consistency checks and a document's saved citation report.
 - `/api/journals` and `/api/journal` — configured journal profiles, rules, and manuscript-fit assessment.
 - `/api/quality`, `/api/novelty`, `/api/methodology`, `/api/contribution`, `/api/completeness`, `/api/writing`, `/api/improvement`, and `/api/report` — assessment and recommendation routes.
+- `/api/improvements/decisions` — authenticated, document-owner-scoped accept/reject/edit decisions on improvement suggestions.
 - `/api/documents/{document_id}/format` and `/generate` — profile formatting checks and output generation.
 - `/api/documents/{document_id}/download/{format}` — generated DOCX, PDF, readiness report, and ZIP downloads.
 - `/api/ai/status` — reports the configured analysis mode; it is configuration information, not a provider uptime check.
@@ -31,7 +32,7 @@ The SQLite database is initialized on startup. API documentation is available at
 - Generated files are stored under `backend/outputs/`, separately from the original upload.
 - PDF parsing and reconstruction may not preserve source layout, figures, or tables. Generated PDF rendering is text-based and does not guarantee office-layout fidelity.
 
-Document routes enforce ownership using the authenticated account. The backend can run deterministic local assessments without an external AI provider. Provider-assisted analysis is optional; when enabled, manuscript-derived data may be sent to that configured provider. Store credentials only in the ignored repository-root `.env`, never in source control.
+Document routes and saved improvement decisions enforce ownership using the authenticated account. The backend can run deterministic local assessments without an external AI provider. Provider-assisted analysis is optional; set `PAPERPILOT_AI_PROVIDER` to `openai`, `groq`, `grok`, or `gemini` and configure the matching key in the ignored repository-root `.env`. The legacy `NEURONEXUS_AI_MODE` setting remains supported. When external analysis is enabled, manuscript-derived data may be sent to that provider. Store credentials only in `.env`, never in source control.
 
 Run the backend tests from the repository root:
 

@@ -142,8 +142,12 @@ def test_citation_validator_reports_numbering_style_and_reference_quality_issues
 
 
 def test_ai_provider_uses_local_rules_without_configured_credentials(monkeypatch):
+    monkeypatch.delenv("NEURONEXUS_AI_MODE", raising=False)
     monkeypatch.delenv("PAPERPILOT_AI_PROVIDER", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.delenv("GROK_API_KEY", raising=False)
+    monkeypatch.delenv("XAI_API_KEY", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
     provider = get_ai_provider()

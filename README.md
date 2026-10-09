@@ -45,7 +45,9 @@ Generated PDF rendering is text-based and does not guarantee office-layout fidel
 
 ## AI configuration and privacy
 
-Without a configured external provider, the backend uses deterministic local analysis. Setting `PAPERPILOT_AI_PROVIDER` to a supported provider and configuring its API key enables provider-assisted structured assessments. In that mode, manuscript-derived content is sent to the configured provider; do not enable it for confidential work unless the provider's data terms and your institutional requirements permit it. Never commit real credentials. Keep them in the ignored repository-root `.env`.
+Without a configured external provider, the backend uses deterministic local analysis. Set `PAPERPILOT_AI_PROVIDER` to `openai`, `groq`, `grok`, or `gemini` and configure that provider's API key in the ignored repository-root `.env` to enable structured assessments. The legacy `NEURONEXUS_AI_MODE` setting is still accepted. In external-provider mode, manuscript-derived content is sent to the configured provider; do not enable it for confidential work unless the provider's data terms and your institutional requirements permit it. Never commit real credentials.
+
+Improvement suggestions are advisory. Accept, reject, and edited-text decisions are saved per account and manuscript, restored when the manuscript is reopened, and summarized in the readiness report. They never alter the uploaded source file.
 
 ## Tests and build
 
